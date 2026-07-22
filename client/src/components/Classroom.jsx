@@ -451,7 +451,9 @@ export default function Classroom() {
             {isTeacher ? <HandRaiseQueue /> : <HandRaiseButton />}
             <Whiteboard isTeacher={isTeacher} />
             <FileShare roomId={roomId} isTeacher={isTeacher} />
-            <Recordings roomId={roomId} refreshKey={recordingsRefreshKey} />
+            {user.role === 'superadmin' && (
+              <Recordings roomId={roomId} refreshKey={recordingsRefreshKey} />
+            )}
             <Chat name={user.name} />
           </aside>
         </main>

@@ -1144,7 +1144,7 @@ app.post(
 // List and download completed recordings. Same access pattern as file
 // sharing: any approved account can view/download, only the host can
 // start/stop a recording in the first place.
-app.get('/api/rooms/:roomId/recordings', auth.requireAuth, async (req, res) => {
+app.get('/api/rooms/:roomId/recordings', auth.requireAuth, auth.requireRole('superadmin'), async (req, res) => {
   try {
     const room = await requireRoom(req.params.roomId, res);
     if (!room) return;
@@ -1158,7 +1158,11 @@ app.get('/api/rooms/:roomId/recordings', auth.requireAuth, async (req, res) => {
 // Returns a short-lived presigned URL the browser can download directly
 // from R2 — the file goes straight to the user's device, never proxied
 // through this server.
-app.get('/api/rooms/:roomId/recordings/:recordingId/download-url', auth.requireAuth, async (req, res) => {
+app.get(
+  '/api/rooms/:roomId/recordings/:recordingId/download-url',
+  auth.requireAuth,
+  auth.requireRole('superadmin'),
+  async (req, res) => {
   try {
     const room = await requireRoom(req.params.roomId, res);
     if (!room) return;
