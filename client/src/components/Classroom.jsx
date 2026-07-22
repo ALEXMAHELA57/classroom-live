@@ -31,6 +31,12 @@ function describeMediaError(err, device) {
   return `Couldn't turn on ${device}: ${err?.message || err?.name || 'unknown error'}.`;
 }
 
+// Most mobile browsers (Android Chrome, iOS Safari) don't support screen
+// sharing at all — showing the button there just guarantees a failed tap.
+// Check once and hide it entirely rather than let people hit an error.
+const SCREEN_SHARE_SUPPORTED =
+  typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia;
+
 export default function Classroom() {
   const { roomId } = useParams();
   const navigate = useNavigate();
@@ -56,6 +62,8 @@ export default function Classroom() {
   const [selfRecording, setSelfRecording] = useState(false);
   const [selfRecordUploading, setSelfRecordUploading] = useState(false);
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
+  const [handRaised, setHandRaised] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [selfRecordError, setSelfRecordError] = useState('');
 
   const audioContainerRef = useRef(null);
@@ -205,12 +213,17 @@ export default function Classroom() {
       setIsRecording(recording);
       if (!recording) setRecordingsRefreshKey((k) => k + 1);
     }
+    function onHandSubmitted() {
+      setHandRaised(true);
+      setTimeout(() => setHandRaised(false), 4000);
+    }
     socket.on('roster:count', onRosterCount);
     socket.on('error-message', onServerError);
     socket.on('removed', onRemoved);
     socket.on('device:superseded', onDeviceSuperseded);
     socket.on('session:ended', onSessionEnded);
     socket.on('recording:status', onRecordingStatus);
+    socket.on('hand:submitted', onHandSubmitted);
 
     return () => {
       cancelled = true;
@@ -220,6 +233,7 @@ export default function Classroom() {
       socket.off('device:superseded', onDeviceSuperseded);
       socket.off('session:ended', onSessionEnded);
       socket.off('recording:status', onRecordingStatus);
+      socket.off('hand:submitted', onHandSubmitted);
       if (selfRecorderRef.current?.state === 'recording') selfRecorderRef.current.stop();
       roomRef.current?.disconnect();
       socket.disconnect();
@@ -262,6 +276,10 @@ export default function Classroom() {
   async function toggleScreenShare() {
     const room = roomRef.current;
     if (!room) return;
+    if (!SCREEN_SHARE_SUPPORTED) {
+      setMediaError("This browser doesn't support screen sharing — try a desktop browser instead.");
+      return;
+    }
     const next = !screenOn;
     try {
       await room.localParticipant.setScreenShareEnabled(next);
@@ -346,6 +364,10 @@ export default function Classroom() {
       return;
     }
     getSocket().emit('session:end');
+  }
+
+  function raiseHandQuick() {
+    getSocket().emit('hand:raise', { question: '' });
   }
 
   async function toggleRecording() {
@@ -440,21 +462,36 @@ export default function Classroom() {
                 <span className="ctrl-icon">{camOn ? '📷' : '🚫'}</span>
                 <span className="ctrl-label">{camOn ? 'Stop video' : 'Start video'}</span>
               </button>
-              <button onClick={toggleScreenShare}>
-                <span className="ctrl-icon">🖥️</span>
-                <span className="ctrl-label">{screenOn ? 'Stop share' : 'Share'}</span>
-              </button>
+              {SCREEN_SHARE_SUPPORTED && (
+                <button onClick={toggleScreenShare}>
+                  <span className="ctrl-icon">🖥️</span>
+                  <span className="ctrl-label">{screenOn ? 'Stop share' : 'Share'}</span>
+                </button>
+              )}
               {user.role === 'student' && (
-                <button onClick={toggleSelfRecording} disabled={selfRecordUploading}>
-                  <span className="ctrl-icon">{selfRecording ? '⏺️' : '🔴'}</span>
-                  <span className="ctrl-label">
-                    {selfRecordUploading ? 'Saving…' : selfRecording ? 'Stop rec.' : 'Record'}
-                  </span>
+                <button onClick={raiseHandQuick} disabled={handRaised}>
+                  <span className="ctrl-icon">✋</span>
+                  <span className="ctrl-label">{handRaised ? 'Hand up' : 'Raise hand'}</span>
+                </button>
+              )}
+              {user.role === 'student' && (
+                <button
+                  onClick={() => {
+                    setChatOpen(true);
+                    setSidePanelOpen(true);
+                  }}
+                >
+                  <span className="ctrl-icon">💬</span>
+                  <span className="ctrl-label">Chat</span>
                 </button>
               )}
               <button className="panel-toggle-btn" onClick={() => setSidePanelOpen(true)}>
                 <span className="ctrl-icon">🗂️</span>
                 <span className="ctrl-label">Panels</span>
+              </button>
+              <button onClick={() => navigate('/')}>
+                <span className="ctrl-icon">🚪</span>
+                <span className="ctrl-label">Leave</span>
               </button>
             </div>
           </section>
@@ -469,7 +506,7 @@ export default function Classroom() {
             {user.role === 'superadmin' && (
               <Recordings roomId={roomId} refreshKey={recordingsRefreshKey} />
             )}
-            <Chat name={user.name} />
+            <Chat name={user.name} open={chatOpen} onOpenChange={setChatOpen} />
           </aside>
         </main>
       )}

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { getSocket } from '../lib/socket.js';
 
-export default function Chat() {
+export default function Chat({ name, open: controlledOpen, onOpenChange } = {}) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = onOpenChange || setInternalOpen;
   const [unread, setUnread] = useState(0);
   const listRef = useRef(null);
 
