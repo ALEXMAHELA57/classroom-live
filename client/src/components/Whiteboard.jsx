@@ -11,6 +11,10 @@ export default function Whiteboard({ isTeacher }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    // The canvas only exists in the DOM while the panel is open (see the
+    // `{open && ...}` below) — grabbing its context before then throws
+    // and, since there's no error boundary, blanks the entire app.
+    if (!open) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     ctx.lineWidth = 2;
@@ -26,7 +30,7 @@ export default function Whiteboard({ isTeacher }) {
       socket.off('whiteboard:draw', onDraw);
       socket.off('whiteboard:clear', onClear);
     };
-  }, []);
+  }, [open]);
 
   function drawSegment(ctx, { x1, y1, x2, y2 }) {
     ctx.beginPath();

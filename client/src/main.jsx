@@ -20,6 +20,7 @@ import LiveSessions from './components/LiveSessions.jsx';
 import MyRecordings from './components/MyRecordings.jsx';
 import SharedRecordings from './components/SharedRecordings.jsx';
 import InstallPrompt from './components/InstallPrompt.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { AuthProvider, useAuth } from './lib/AuthContext.jsx';
 import './styles.css';
 
@@ -77,8 +78,10 @@ function Root() {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <Root />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Root />
+      </BrowserRouter>
+    </ErrorBoundary>
   </React.StrictMode>
 );
