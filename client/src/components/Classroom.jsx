@@ -55,6 +55,7 @@ export default function Classroom() {
   const [recordingsRefreshKey, setRecordingsRefreshKey] = useState(0);
   const [selfRecording, setSelfRecording] = useState(false);
   const [selfRecordUploading, setSelfRecordUploading] = useState(false);
+  const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [selfRecordError, setSelfRecordError] = useState('');
 
   const audioContainerRef = useRef(null);
@@ -436,10 +437,16 @@ export default function Classroom() {
                   </span>
                 </button>
               )}
+              <button className="panel-toggle-btn" onClick={() => setSidePanelOpen(true)}>
+                <span className="ctrl-icon">🗂️</span>
+                <span className="ctrl-label">Panels</span>
+              </button>
             </div>
           </section>
 
-          <aside className="side-panel">
+          {sidePanelOpen && <div className="side-panel-backdrop" onClick={() => setSidePanelOpen(false)} />}
+          <aside className={`side-panel ${sidePanelOpen ? 'open' : ''}`}>
+            <div className="side-panel-handle" onClick={() => setSidePanelOpen(false)} />
             {isTeacher && <Roster />}
             {isTeacher ? <HandRaiseQueue /> : <HandRaiseButton />}
             <Whiteboard isTeacher={isTeacher} />

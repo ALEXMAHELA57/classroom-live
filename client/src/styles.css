@@ -139,8 +139,11 @@ button.ghost {
 @media (max-width: 820px) {
   .classroom-grid {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(240px, 1fr) 1fr;
+    grid-template-rows: 1fr;
+    padding: 0;
+    gap: 0;
   }
+  .stage { border-radius: 0; }
 
   /* The docked toolbar already fits mobile widths via flex — just tighten
      it up a bit further on small screens. */
@@ -148,12 +151,54 @@ button.ghost {
   .stage-controls .ctrl-icon { font-size: 1.1rem; }
   .stage-controls .ctrl-label { font-size: 0.65rem; }
 
-  /* Panels default to compact on mobile — tapping a header still opens
-     it full-size, but six fully-padded cards stacked below the video is
-     mostly wasted scroll on a small screen. */
-  .side-panel { gap: 0.5rem; }
+  /* On mobile the video is the main event — Roster/Whiteboard/Files/
+     Recordings/Chat move into a slide-up drawer opened via the "Panels"
+     toolbar button, instead of six stacked cards you'd have to scroll
+     past to even see the video. */
+  .side-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: auto;
+    max-height: 80vh;
+    background: var(--paper);
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.3);
+    transform: translateY(105%);
+    transition: transform 0.25s ease;
+    z-index: 60;
+    padding: 8px 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    gap: 0.5rem;
+  }
+  .side-panel.open { transform: translateY(0); }
+  .side-panel-handle {
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--line);
+    margin: 0 auto 10px;
+    cursor: pointer;
+  }
+  .side-panel-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(16, 24, 22, 0.45);
+    z-index: 55;
+  }
+
+  /* This toggle only makes sense once the sidebar has moved into the
+     drawer above — on desktop the sidebar is always visible already. */
+  .panel-toggle-btn { display: flex; }
+
+  /* Panels default to compact — tapping a header still opens it
+     full-size, but no need for generous desktop padding in a drawer. */
   .panel { padding: 0.7rem 0.85rem; }
   .panel h3 { font-size: 0.95rem; }
+}
+
+@media (min-width: 821px) {
+  .panel-toggle-btn { display: none; }
 }
 
 .stage {
