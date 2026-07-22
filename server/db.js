@@ -90,7 +90,7 @@ export async function initSchema() {
       room_id TEXT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
       egress_id TEXT NOT NULL,
       s3_key TEXT NOT NULL,
-      status TEXT NOT NULL CHECK (status IN ('recording', 'completed', 'failed')),
+      status TEXT NOT NULL CHECK (status IN ('recording', 'processing', 'completed', 'failed')),
       started_at BIGINT NOT NULL,
       ended_at BIGINT
     );
@@ -195,6 +195,21 @@ export async function initSchema() {
     ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS source_filename TEXT;
     ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS source_original_name TEXT;
     ALTER TABLE assignments ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'published';
+  `);
+
+  // Widen the room_recordings status CHECK constraint to allow
+  // 'processing' — recordings now sit in that state between "stop
+  // clicked" and "LiveKit's webhook confirms the upload actually
+  // finished", instead of being marked 'completed' (and offered for
+  // download) before the file exists in R2. The constraint name below is
+  // Postgres's default auto-generated name for an inline column CHECK;
+  // if it was somehow created with a different name this is a no-op and
+  // the ADD CONSTRAINT will fail loudly rather than silently, which is
+  // preferable to guessing wrong and corrupting data.
+  await pool.query(`
+    ALTER TABLE room_recordings DROP CONSTRAINT IF EXISTS room_recordings_status_check;
+    ALTER TABLE room_recordings ADD CONSTRAINT room_recordings_status_check
+      CHECK (status IN ('recording', 'processing', 'completed', 'failed'));
   `);
 
   console.log('[db] Connected to Supabase and verified schema.');

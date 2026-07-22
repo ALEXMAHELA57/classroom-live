@@ -7,7 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import { Server as SocketIOServer } from 'socket.io';
-import { AccessToken, RoomServiceClient, EgressClient, EncodedFileOutput, EncodedFileType, S3Upload } from 'livekit-server-sdk';
+import { AccessToken, RoomServiceClient, EgressClient, EncodedFileOutput, EncodedFileType, S3Upload, WebhookReceiver, EgressStatus } from 'livekit-server-sdk';
 import { nanoid } from 'nanoid';
 import * as db from './db.js';
 import * as auth from './auth.js';
@@ -53,6 +53,8 @@ const egressClient =
   LIVEKIT_API_KEY && LIVEKIT_API_SECRET && LIVEKIT_HTTP_URL
     ? new EgressClient(LIVEKIT_HTTP_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET)
     : null;
+const webhookReceiver =
+  LIVEKIT_API_KEY && LIVEKIT_API_SECRET ? new WebhookReceiver(LIVEKIT_API_KEY, LIVEKIT_API_SECRET) : null;
 const recordingStorageConfigured = Boolean(S3_BUCKET && S3_REGION && S3_ACCESS_KEY && S3_SECRET);
 
 const upload = multer({
@@ -65,6 +67,35 @@ const upload = multer({
 
 const app = express();
 app.use(cors({ origin: CLIENT_ORIGIN }));
+
+// LiveKit calls this when an egress (recording) actually finishes
+// uploading — this is what lets us know a recording is truly ready to
+// download, instead of assuming it's done the moment "stop" was clicked.
+// Must be registered before express.json() below: verifying the
+// webhook's signature requires the exact raw request body, which
+// express.json() would otherwise already have consumed and parsed away.
+// Configure this URL (https://<your-backend>/api/livekit/webhook) in
+// your LiveKit Cloud project's Settings → Webhooks, or in livekit.yaml
+// under `webhook.urls` if self-hosting.
+app.post('/api/livekit/webhook', express.raw({ type: 'application/webhook+json' }), async (req, res) => {
+  if (!webhookReceiver) return res.status(400).send('LiveKit is not configured');
+  try {
+    const event = await webhookReceiver.receive(req.body.toString('utf8'), req.get('Authorization'));
+    if (event.event === 'egress_ended' && event.egressInfo) {
+      const { egressId, status } = event.egressInfo;
+      const finalStatus = status === EgressStatus.EGRESS_COMPLETE ? 'completed' : 'failed';
+      await recordingsRepo.markRecordingStatus(egressId, finalStatus);
+      if (finalStatus === 'failed') {
+        console.error(`[livekit] egress ${egressId} ended without completing (status=${status})`);
+      }
+    }
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('[livekit] webhook signature/parse error', err);
+    res.status(400).send('Invalid webhook');
+  }
+});
+
 app.use(express.json());
 
 // --- Auth --------------------------------------------------------------
@@ -1093,11 +1124,12 @@ app.post(
       }
       await egressClient.stopEgress(live.activeEgressId);
       // The egress service finishes uploading to R2 asynchronously after
-      // this call returns — marking it "completed" immediately is a
-      // simplification. A LiveKit webhook (egress_ended) would be the
-      // accurate way to know the upload actually finished; worth adding
-      // if a recording ever shows up in the list before it's really ready.
-      await recordingsRepo.markRecordingStatus(live.activeEgressId, 'completed');
+      // this call returns. Marking it "processing" here (rather than
+      // "completed") keeps it correctly hidden from downloads until the
+      // /api/livekit/webhook handler above hears egress_ended and flips
+      // it to "completed" — otherwise a download attempted too soon
+      // fails with NoSuchKey because the file isn't in R2 yet.
+      await recordingsRepo.markRecordingStatus(live.activeEgressId, 'processing');
       live.activeEgressId = null;
       live.activeRecordingKey = null;
       io.to(req.params.roomId).emit('recording:status', { recording: false });
@@ -1132,6 +1164,9 @@ app.get('/api/rooms/:roomId/recordings/:recordingId/download-url', auth.requireA
     if (!room) return;
     const recording = await recordingsRepo.getRecording(req.params.roomId, req.params.recordingId);
     if (!recording) return res.status(404).json({ error: 'Recording not found' });
+    if (recording.status !== 'completed') {
+      return res.status(409).json({ error: "This recording is still processing — try again in a minute." });
+    }
     const filename = `${room.name.replace(/[^a-z0-9]+/gi, '-')}-${recording.startedAt}.mp4`;
     const url = await s3.getDownloadUrl(recording.s3Key, filename);
     res.json({ url });

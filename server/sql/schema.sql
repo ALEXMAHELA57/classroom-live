@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS room_recordings (
   room_id TEXT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
   egress_id TEXT NOT NULL,
   s3_key TEXT NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('recording', 'completed', 'failed')),
+  status TEXT NOT NULL CHECK (status IN ('recording', 'processing', 'completed', 'failed')),
   started_at BIGINT NOT NULL,
   ended_at BIGINT
 );
@@ -144,6 +144,9 @@ ALTER TABLE subjects ADD COLUMN IF NOT EXISTS syllabus_text TEXT;
 ALTER TABLE assignments ADD COLUMN IF NOT EXISTS source_filename TEXT;
 ALTER TABLE assignments ADD COLUMN IF NOT EXISTS source_original_name TEXT;
 ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'published';
+ALTER TABLE room_recordings DROP CONSTRAINT IF EXISTS room_recordings_status_check;
+ALTER TABLE room_recordings ADD CONSTRAINT room_recordings_status_check
+  CHECK (status IN ('recording', 'processing', 'completed', 'failed'));
 ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS source_filename TEXT;
 ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS source_original_name TEXT;
 ALTER TABLE assignments ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'published';

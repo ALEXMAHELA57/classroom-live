@@ -30,7 +30,7 @@ export async function markRecordingStatus(egressId, status) {
 
 export async function listRecordings(roomId) {
   const { rows } = await db.query(
-    "SELECT * FROM room_recordings WHERE room_id = $1 AND status = 'completed' ORDER BY started_at DESC",
+    "SELECT * FROM room_recordings WHERE room_id = $1 AND status IN ('processing', 'completed') ORDER BY started_at DESC",
     [roomId]
   );
   return rows.map(toPublicRecording);

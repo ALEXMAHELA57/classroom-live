@@ -24,6 +24,17 @@ export default function Recordings({ roomId, refreshKey }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, refreshKey]);
 
+  // While anything is still "processing" (LiveKit hasn't confirmed the
+  // upload finished yet), poll every few seconds so it flips to
+  // "completed" — and becomes downloadable — without the person needing
+  // to manually reopen this panel.
+  useEffect(() => {
+    if (!recordings.some((r) => r.status === 'processing')) return;
+    const interval = setInterval(refresh, 5000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordings]);
+
   async function download(recording) {
     setDownloadingId(recording.id);
     setError('');
@@ -57,9 +68,13 @@ export default function Recordings({ roomId, refreshKey }) {
             {recordings.map((r) => (
               <li key={r.id} className="file-row">
                 <span>{new Date(r.startedAt).toLocaleString()}</span>
-                <button className="ghost" onClick={() => download(r)} disabled={downloadingId === r.id}>
-                  {downloadingId === r.id ? 'Preparing…' : 'Download'}
-                </button>
+                {r.status === 'processing' ? (
+                  <span className="muted">Processing…</span>
+                ) : (
+                  <button className="ghost" onClick={() => download(r)} disabled={downloadingId === r.id}>
+                    {downloadingId === r.id ? 'Preparing…' : 'Download'}
+                  </button>
+                )}
               </li>
             ))}
           </ul>
