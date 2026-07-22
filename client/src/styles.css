@@ -141,6 +141,28 @@ button.ghost {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(240px, 1fr) 1fr;
   }
+
+  /* Full desktop-sized buttons crowd out the camera feed on a phone —
+     shrink them and let them wrap into two short rows instead of one
+     wide row that either overflows or covers most of the face. */
+  .stage-controls {
+    gap: 6px;
+    max-width: calc(100% - 24px);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .stage-controls button {
+    padding: 7px 10px;
+    font-size: 0.78rem;
+    background: rgba(16, 32, 28, 0.82);
+  }
+
+  /* Panels default to compact on mobile — tapping a header still opens
+     it full-size, but six fully-padded cards stacked below the video is
+     mostly wasted scroll on a small screen. */
+  .side-panel { gap: 0.5rem; }
+  .panel { padding: 0.7rem 0.85rem; }
+  .panel h3 { font-size: 0.95rem; }
 }
 
 .stage {

@@ -8,7 +8,7 @@ export default function Whiteboard({ isTeacher }) {
   const canvasRef = useRef(null);
   const drawing = useRef(false);
   const last = useRef({ x: 0, y: 0 });
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
