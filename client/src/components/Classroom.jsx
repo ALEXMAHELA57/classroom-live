@@ -341,6 +341,13 @@ export default function Classroom() {
     }
   }
 
+  function endClassForEveryone() {
+    if (!window.confirm('End this class for everyone? All students will be disconnected immediately.')) {
+      return;
+    }
+    getSocket().emit('session:end');
+  }
+
   async function toggleRecording() {
     setRecordingBusy(true);
     setRecordingError('');
@@ -385,6 +392,14 @@ export default function Classroom() {
               {copied ? 'Copied ✓' : 'Copy invite link'}
             </button>
           )}
+          {isTeacher && (
+            <button className="ghost danger" onClick={endClassForEveryone}>
+              End class for everyone
+            </button>
+          )}
+          <button className="ghost" onClick={() => navigate('/')}>
+            Leave
+          </button>
         </div>
       </header>
       {recordingError && <p className="error center-pad-sm">{recordingError}</p>}

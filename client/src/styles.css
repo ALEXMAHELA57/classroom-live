@@ -124,6 +124,8 @@ button.ghost {
   border-color: rgba(241, 239, 230, 0.4);
 }
 .header-actions { display: flex; gap: 8px; }
+.classroom-header button.ghost.danger { color: #f2a68f; border-color: rgba(242, 166, 143, 0.4); }
+.classroom-header button.ghost.danger:hover { background: rgba(242, 166, 143, 0.12); }
 .rec-indicator { color: #e05b45; font-weight: 700; margin-left: 6px; }
 
 .classroom-grid {

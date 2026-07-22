@@ -1339,6 +1339,14 @@ io.on('connection', (socket) => {
     if (targetSocketId) io.to(targetSocketId).emit('removed');
   });
 
+  // Teacher explicitly ending the class — as opposed to just leaving,
+  // which only disconnects them and leaves the room open for everyone
+  // else. This disconnects all participants and closes the room.
+  socket.on('session:end', async () => {
+    if (!currentRoomId || !isTeacher) return;
+    await endSession(currentRoomId, 'ended-by-teacher');
+  });
+
   // Whiteboard: only the teacher can draw, everyone sees it live.
   socket.on('whiteboard:draw', (stroke) => {
     if (!currentRoomId || !isTeacher) return;
