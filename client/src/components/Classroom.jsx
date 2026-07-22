@@ -401,34 +401,42 @@ export default function Classroom() {
       {status !== 'ended' && (
         <main className="classroom-grid">
           <section className="stage">
-            {tiles.length === 0 ? (
-              <p className="muted">Nothing is being shared yet.</p>
-            ) : (
-              <div className="tile-grid">
-                {tiles.map((t) => (
-                  <VideoTile key={t.sid} tile={t} />
-                ))}
-              </div>
-            )}
-            <div ref={audioContainerRef} style={{ display: 'none' }} />
-            <Captions myName={user.name} />
+            <div className="stage-main">
+              {tiles.length === 0 ? (
+                <p className="muted">Nothing is being shared yet.</p>
+              ) : (
+                <div className="tile-grid">
+                  {tiles.map((t) => (
+                    <VideoTile key={t.sid} tile={t} />
+                  ))}
+                </div>
+              )}
+              <div ref={audioContainerRef} style={{ display: 'none' }} />
+              <Captions myName={user.name} />
+              {selfRecordError && <p className="caption-error" style={{ top: 44 }}>{selfRecordError}</p>}
+            </div>
             <div className="stage-controls">
-              <button onClick={toggleMic}>{micOn ? 'Mute mic' : 'Unmute mic'}</button>
-              <button onClick={toggleCam}>{camOn ? 'Stop camera' : 'Start camera'}</button>
+              <button onClick={toggleMic}>
+                <span className="ctrl-icon">{micOn ? '🎤' : '🔇'}</span>
+                <span className="ctrl-label">{micOn ? 'Mute' : 'Unmute'}</span>
+              </button>
+              <button onClick={toggleCam}>
+                <span className="ctrl-icon">{camOn ? '📷' : '🚫'}</span>
+                <span className="ctrl-label">{camOn ? 'Stop video' : 'Start video'}</span>
+              </button>
               <button onClick={toggleScreenShare}>
-                {screenOn ? 'Stop sharing' : 'Share screen'}
+                <span className="ctrl-icon">🖥️</span>
+                <span className="ctrl-label">{screenOn ? 'Stop share' : 'Share'}</span>
               </button>
               {user.role === 'student' && (
                 <button onClick={toggleSelfRecording} disabled={selfRecordUploading}>
-                  {selfRecordUploading
-                    ? 'Saving your recording…'
-                    : selfRecording
-                      ? '● Stop recording myself'
-                      : 'Record myself'}
+                  <span className="ctrl-icon">{selfRecording ? '⏺️' : '🔴'}</span>
+                  <span className="ctrl-label">
+                    {selfRecordUploading ? 'Saving…' : selfRecording ? 'Stop rec.' : 'Record'}
+                  </span>
                 </button>
               )}
             </div>
-            {selfRecordError && <p className="caption-error" style={{ top: 44 }}>{selfRecordError}</p>}
           </section>
 
           <aside className="side-panel">
