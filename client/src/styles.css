@@ -48,9 +48,14 @@ h1, h2, h3 {
   border-radius: 14px;
   padding: 2rem;
   width: 100%;
-  max-width: 380px;
   box-shadow: 0 1px 2px rgba(28, 43, 42, 0.06);
 }
+
+/* Only cards standing alone on a centered page (login errors, join-room,
+   etc.) should be narrow — cards inside .admin-wrap (Subjects, Billing,
+   admin tables...) should fill that wider container instead of being
+   squeezed into a login-sized column with empty space next to them. */
+.page.centered .card { max-width: 380px; }
 
 .card h1 { font-size: 1.6rem; margin-bottom: 6px; }
 .card p.muted { margin-bottom: 1.25rem; }
@@ -400,6 +405,30 @@ select {
 
 .subject-card { margin-bottom: 1rem; }
 .subject-card h3.collapsible { cursor: pointer; margin-bottom: 4px; }
+
+.admin-section {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+.admin-section:first-of-type { margin-top: 1rem; }
+.admin-section-label {
+  margin: 0 0 2px;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--chalkboard);
+}
+.admin-section-hint { margin: 0 0 10px; }
+.admin-upload-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  cursor: pointer;
+  text-align: center;
+}
 
 .syllabus-view {
   width: 100%;

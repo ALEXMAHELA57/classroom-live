@@ -145,34 +145,38 @@ function StudentSubjectCard({ subject }) {
             <p className="muted">No syllabus uploaded yet.</p>
           )}
 
-          <p className="muted" style={{ marginTop: 14 }}>Quizzes</p>
-          {quizList.length === 0 && <p className="muted">No quizzes yet.</p>}
-          <ul className="roster-list">
-            {quizList.map((q) => (
-              <li key={q.id} className="file-row">
-                <span>{q.topic || 'Quiz'} — {q.questionCount} questions</span>
-                <Link to={`/quizzes/${q.id}`}>
-                  <button className="ghost">Take quiz</button>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className="admin-section">
+            <p className="admin-section-label">Quizzes</p>
+            {quizList.length === 0 && <p className="muted">No quizzes yet.</p>}
+            <ul className="roster-list">
+              {quizList.map((q) => (
+                <li key={q.id} className="file-row">
+                  <span>{q.topic || 'Quiz'} — {q.questionCount} questions</span>
+                  <Link to={`/quizzes/${q.id}`}>
+                    <button className="ghost">Take quiz</button>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-          <p className="muted" style={{ marginTop: 14 }}>Assignments</p>
-          {assignmentList.length === 0 && <p className="muted">No assignments yet.</p>}
-          <ul className="roster-list">
-            {assignmentList.map((a) => (
-              <li key={a.id} className="file-row">
-                <span>
-                  {a.title}
-                  {a.dueAt ? ` — due ${new Date(a.dueAt).toLocaleDateString()}` : ''}
-                </span>
-                <Link to={`/assignments/${a.id}`}>
-                  <button className="ghost">Open</button>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className="admin-section">
+            <p className="admin-section-label">Assignments</p>
+            {assignmentList.length === 0 && <p className="muted">No assignments yet.</p>}
+            <ul className="roster-list">
+              {assignmentList.map((a) => (
+                <li key={a.id} className="file-row">
+                  <span>
+                    {a.title}
+                    {a.dueAt ? ` — due ${new Date(a.dueAt).toLocaleDateString()}` : ''}
+                  </span>
+                  <Link to={`/assignments/${a.id}`}>
+                    <button className="ghost">Open</button>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         </>
       )}
     </div>
@@ -363,177 +367,185 @@ function SubjectManageCard({ subject, onChanged }) {
         <>
           {error && <p className="error">{error}</p>}
 
-          <p className="muted" style={{ marginTop: 10 }}>Syllabus</p>
-          {subject.hasSyllabus ? (
-            <Link to={`/subjects/${subject.id}/syllabus`}>
-              <button className="ghost">View current syllabus</button>
-            </Link>
-          ) : (
-            <p className="muted">None uploaded yet.</p>
-          )}
-          <p className="muted" style={{ fontSize: '0.8rem', marginTop: 6 }}>Upload a file:</p>
-          <input type="file" onChange={handleSyllabusUpload} disabled={uploading} style={{ marginTop: 6 }} />
-          <p className="muted" style={{ fontSize: '0.8rem', marginTop: 10 }}>
-            …or type it directly (replaces any uploaded file):
-          </p>
-          <form onSubmit={handleSaveSyllabusText} className="admin-create-form">
-            <textarea
-              className="quiz-textarea"
-              rows={3}
-              placeholder="Paste or write the syllabus text here"
-              value={syllabusText}
-              onChange={(e) => setSyllabusTextValue(e.target.value)}
-            />
-            <button type="submit" disabled={savingSyllabusText || !syllabusText.trim()}>
-              {savingSyllabusText ? 'Saving…' : 'Save syllabus text'}
-            </button>
-          </form>
-
-          <p className="muted" style={{ marginTop: 14 }}>Enroll a student</p>
-          <div className="admin-create-form">
-            <select value={selected} onChange={(e) => setSelected(e.target.value)}>
-              <option value="">Select a student…</option>
-              {availableStudents.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.email})
-                </option>
-              ))}
-            </select>
-            <button onClick={enroll} disabled={!selected}>
-              Enroll
-            </button>
+          <div className="admin-section">
+            <p className="admin-section-label">Syllabus</p>
+            {subject.hasSyllabus ? (
+              <Link to={`/subjects/${subject.id}/syllabus`}>
+                <button className="ghost">View current syllabus</button>
+              </Link>
+            ) : (
+              <p className="muted">None uploaded yet.</p>
+            )}
+            <p className="muted" style={{ fontSize: '0.8rem', marginTop: 10 }}>Upload a file:</p>
+            <input type="file" onChange={handleSyllabusUpload} disabled={uploading} style={{ marginTop: 6 }} />
+            <p className="muted" style={{ fontSize: '0.8rem', marginTop: 10 }}>
+              …or type it directly (replaces any uploaded file):
+            </p>
+            <form onSubmit={handleSaveSyllabusText} className="admin-create-form">
+              <textarea
+                className="quiz-textarea"
+                rows={3}
+                placeholder="Paste or write the syllabus text here"
+                value={syllabusText}
+                onChange={(e) => setSyllabusTextValue(e.target.value)}
+              />
+              <button type="submit" disabled={savingSyllabusText || !syllabusText.trim()}>
+                {savingSyllabusText ? 'Saving…' : 'Save syllabus text'}
+              </button>
+            </form>
           </div>
 
-          <ul className="roster-list roster-mod" style={{ marginTop: 10 }}>
-            {subject.enrolledStudentIds.length === 0 && <p className="muted">No students enrolled yet.</p>}
-            {students
-              .filter((s) => enrolledIds.has(s.id))
-              .map((s) => (
-                <li key={s.id}>
-                  <span>{s.name}</span>
-                  <button className="ghost" onClick={() => unenroll(s.id)}>
-                    Unenroll
-                  </button>
+          <div className="admin-section">
+            <p className="admin-section-label">Roster</p>
+            <div className="admin-create-form">
+              <select value={selected} onChange={(e) => setSelected(e.target.value)}>
+                <option value="">Select a student…</option>
+                {availableStudents.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.email})
+                  </option>
+                ))}
+              </select>
+              <button onClick={enroll} disabled={!selected}>
+                Enroll
+              </button>
+            </div>
+
+            <ul className="roster-list roster-mod" style={{ marginTop: 10 }}>
+              {subject.enrolledStudentIds.length === 0 && <p className="muted">No students enrolled yet.</p>}
+              {students
+                .filter((s) => enrolledIds.has(s.id))
+                .map((s) => (
+                  <li key={s.id}>
+                    <span>{s.name}</span>
+                    <button className="ghost" onClick={() => unenroll(s.id)}>
+                      Unenroll
+                    </button>
+                  </li>
+                ))}
+            </ul>
+          </div>
+
+          <div className="admin-section">
+            <p className="admin-section-label">Quizzes</p>
+            <p className="admin-section-hint muted" style={{ fontSize: '0.8rem' }}>
+              Generated or uploaded quizzes are saved as drafts — review and edit them, then
+              publish when you're ready. A quiz you write by hand publishes immediately.
+            </p>
+            <form onSubmit={handleGenerateQuiz} className="admin-create-form">
+              <input
+                placeholder="Topic (optional if a PDF syllabus is uploaded)"
+                value={quizTopic}
+                onChange={(e) => setQuizTopic(e.target.value)}
+              />
+              <button type="submit" disabled={generating}>
+                {generating ? 'Generating…' : 'Generate quiz'}
+              </button>
+            </form>
+            <div className="admin-create-form" style={{ marginTop: 8 }}>
+              <Link to={`/subjects/${subject.id}/quizzes/new`}>
+                <button className="ghost" style={{ width: '100%' }}>Write a quiz by hand</button>
+              </Link>
+              <label className="ghost admin-upload-label">
+                {uploadingQuiz ? 'Uploading…' : 'Upload a quiz document'}
+                <input type="file" onChange={handleUploadQuiz} disabled={uploadingQuiz} style={{ display: 'none' }} />
+              </label>
+            </div>
+
+            <ul className="roster-list" style={{ marginTop: 10 }}>
+              {quizList.length === 0 && <p className="muted">No quizzes yet.</p>}
+              {quizList.map((q) => (
+                <li key={q.id} className="file-row">
+                  <span>
+                    {q.topic || 'Quiz'} — {q.questionCount} questions
+                    {q.status === 'draft' && <span className="muted"> · Draft</span>}
+                  </span>
+                  <span>
+                    {q.status === 'draft' ? (
+                      <>
+                        <Link to={`/quizzes/${q.id}/edit`}>
+                          <button className="ghost">Review & edit</button>
+                        </Link>{' '}
+                        <button onClick={() => handlePublishQuiz(q.id)}>Publish</button>
+                      </>
+                    ) : (
+                      <>
+                        <Link to={`/quizzes/${q.id}/edit`}>
+                          <button className="ghost">Edit</button>
+                        </Link>{' '}
+                        <Link to={`/quizzes/${q.id}/results`}>
+                          <button className="ghost">Results</button>
+                        </Link>
+                      </>
+                    )}
+                  </span>
                 </li>
               ))}
-          </ul>
-
-          <p className="muted" style={{ marginTop: 14 }}>Quizzes</p>
-          <p className="muted" style={{ fontSize: '0.8rem' }}>
-            Generated or uploaded quizzes are saved as drafts — review and edit them, then
-            publish when you're ready. A quiz you write by hand publishes immediately.
-          </p>
-          <form onSubmit={handleGenerateQuiz} className="admin-create-form">
-            <input
-              placeholder="Topic (optional if a PDF syllabus is uploaded)"
-              value={quizTopic}
-              onChange={(e) => setQuizTopic(e.target.value)}
-            />
-            <button type="submit" disabled={generating}>
-              {generating ? 'Generating…' : 'Generate quiz'}
-            </button>
-          </form>
-          <div className="admin-create-form" style={{ marginTop: 8 }}>
-            <Link to={`/subjects/${subject.id}/quizzes/new`}>
-              <button className="ghost">Write a quiz by hand</button>
-            </Link>
-            <label className="ghost" style={{ display: 'inline-block', cursor: 'pointer' }}>
-              {uploadingQuiz ? 'Uploading…' : 'Upload a quiz document'}
-              <input type="file" onChange={handleUploadQuiz} disabled={uploadingQuiz} style={{ display: 'none' }} />
-            </label>
+            </ul>
           </div>
 
-          <ul className="roster-list" style={{ marginTop: 10 }}>
-            {quizList.length === 0 && <p className="muted">No quizzes yet.</p>}
-            {quizList.map((q) => (
-              <li key={q.id} className="file-row">
-                <span>
-                  {q.topic || 'Quiz'} — {q.questionCount} questions
-                  {q.status === 'draft' && <span className="muted"> · Draft</span>}
-                </span>
-                <span>
-                  {q.status === 'draft' ? (
-                    <>
-                      <Link to={`/quizzes/${q.id}/edit`}>
-                        <button className="ghost">Review & edit</button>
-                      </Link>{' '}
-                      <button onClick={() => handlePublishQuiz(q.id)}>Publish</button>
-                    </>
-                  ) : (
-                    <>
-                      <Link to={`/quizzes/${q.id}/edit`}>
-                        <button className="ghost">Edit</button>
-                      </Link>{' '}
-                      <Link to={`/quizzes/${q.id}/results`}>
-                        <button className="ghost">Results</button>
-                      </Link>
-                    </>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <p className="muted" style={{ marginTop: 14 }}>Assignments</p>
-          <p className="muted" style={{ fontSize: '0.8rem' }}>
-            Same review flow as quizzes — generated or uploaded assignments start as drafts;
-            hand-written ones publish immediately.
-          </p>
-          <form onSubmit={handleGenerateAssignment} className="admin-create-form">
-            <input
-              placeholder="Topic (optional if a PDF syllabus is uploaded)"
-              value={assignmentTopic}
-              onChange={(e) => setAssignmentTopic(e.target.value)}
-            />
-            <button type="submit" disabled={generatingAssignment}>
-              {generatingAssignment ? 'Generating…' : 'Generate assignment'}
-            </button>
-          </form>
-          <div className="admin-create-form" style={{ marginTop: 8 }}>
-            <Link to={`/subjects/${subject.id}/assignments/new`}>
-              <button className="ghost">Write an assignment by hand</button>
-            </Link>
-            <label className="ghost" style={{ display: 'inline-block', cursor: 'pointer' }}>
-              {uploadingAssignment ? 'Uploading…' : 'Upload an assignment document'}
+          <div className="admin-section">
+            <p className="admin-section-label">Assignments</p>
+            <p className="admin-section-hint muted" style={{ fontSize: '0.8rem' }}>
+              Same review flow as quizzes — generated or uploaded assignments start as drafts;
+              hand-written ones publish immediately.
+            </p>
+            <form onSubmit={handleGenerateAssignment} className="admin-create-form">
               <input
-                type="file"
-                onChange={handleUploadAssignment}
-                disabled={uploadingAssignment}
-                style={{ display: 'none' }}
+                placeholder="Topic (optional if a PDF syllabus is uploaded)"
+                value={assignmentTopic}
+                onChange={(e) => setAssignmentTopic(e.target.value)}
               />
-            </label>
-          </div>
+              <button type="submit" disabled={generatingAssignment}>
+                {generatingAssignment ? 'Generating…' : 'Generate assignment'}
+              </button>
+            </form>
+            <div className="admin-create-form" style={{ marginTop: 8 }}>
+              <Link to={`/subjects/${subject.id}/assignments/new`}>
+                <button className="ghost" style={{ width: '100%' }}>Write an assignment by hand</button>
+              </Link>
+              <label className="ghost admin-upload-label">
+                {uploadingAssignment ? 'Uploading…' : 'Upload an assignment document'}
+                <input
+                  type="file"
+                  onChange={handleUploadAssignment}
+                  disabled={uploadingAssignment}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            </div>
 
-          <ul className="roster-list" style={{ marginTop: 10 }}>
-            {assignmentList.length === 0 && <p className="muted">No assignments yet.</p>}
-            {assignmentList.map((a) => (
-              <li key={a.id} className="file-row">
-                <span>
-                  {a.title}
-                  {a.status === 'draft' && <span className="muted"> · Draft</span>}
-                </span>
-                <span>
-                  {a.status === 'draft' ? (
-                    <>
-                      <Link to={`/assignments/${a.id}/edit`}>
-                        <button className="ghost">Review & edit</button>
-                      </Link>{' '}
-                      <button onClick={() => handlePublishAssignment(a.id)}>Publish</button>
-                    </>
-                  ) : (
-                    <>
-                      <Link to={`/assignments/${a.id}/edit`}>
-                        <button className="ghost">Edit</button>
-                      </Link>{' '}
-                      <Link to={`/assignments/${a.id}/results`}>
-                        <button className="ghost">Results</button>
-                      </Link>
-                    </>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
+            <ul className="roster-list" style={{ marginTop: 10 }}>
+              {assignmentList.length === 0 && <p className="muted">No assignments yet.</p>}
+              {assignmentList.map((a) => (
+                <li key={a.id} className="file-row">
+                  <span>
+                    {a.title}
+                    {a.status === 'draft' && <span className="muted"> · Draft</span>}
+                  </span>
+                  <span>
+                    {a.status === 'draft' ? (
+                      <>
+                        <Link to={`/assignments/${a.id}/edit`}>
+                          <button className="ghost">Review & edit</button>
+                        </Link>{' '}
+                        <button onClick={() => handlePublishAssignment(a.id)}>Publish</button>
+                      </>
+                    ) : (
+                      <>
+                        <Link to={`/assignments/${a.id}/edit`}>
+                          <button className="ghost">Edit</button>
+                        </Link>{' '}
+                        <Link to={`/assignments/${a.id}/results`}>
+                          <button className="ghost">Results</button>
+                        </Link>
+                      </>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </>
       )}
     </div>
