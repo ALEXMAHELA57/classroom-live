@@ -164,3 +164,12 @@ export async function getOwnedSubject(subjectId, user) {
   }
   return subject;
 }
+
+// Deletes the subject entirely. Enrollments, quizzes, assignments, and
+// their submissions all cascade via foreign keys — there's no
+// undo, so the route calling this should get explicit confirmation first.
+export async function deleteSubject(subjectId, user) {
+  await getOwnedSubject(subjectId, user);
+  await db.query('DELETE FROM subjects WHERE id = $1', [subjectId]);
+  return { id: subjectId, deleted: true };
+}

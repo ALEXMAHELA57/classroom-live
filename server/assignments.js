@@ -168,6 +168,32 @@ export async function publishAssignment(assignmentId, user) {
   return { id: assignmentId, status: 'published' };
 }
 
+// Pull a published assignment back to draft. Any submissions students
+// already made are left alone.
+export async function unpublishAssignment(assignmentId, user) {
+  const raw = await getRawAssignment(assignmentId);
+  if (!raw) throw new Error('Assignment not found');
+  const subject = await subjects.getSubject(raw.subject_id);
+  if (user.role !== 'superadmin' && subject.staffId !== user.id) {
+    throw new Error("Only this subject's teacher can unpublish this");
+  }
+  await db.query("UPDATE assignments SET status = 'draft' WHERE id = $1", [assignmentId]);
+  return { id: assignmentId, status: 'draft' };
+}
+
+// Deletes the assignment and, via ON DELETE CASCADE, any student
+// submissions for it.
+export async function deleteAssignment(assignmentId, user) {
+  const raw = await getRawAssignment(assignmentId);
+  if (!raw) throw new Error('Assignment not found');
+  const subject = await subjects.getSubject(raw.subject_id);
+  if (user.role !== 'superadmin' && subject.staffId !== user.id) {
+    throw new Error("Only this subject's teacher can delete this");
+  }
+  await db.query('DELETE FROM assignments WHERE id = $1', [assignmentId]);
+  return { id: assignmentId, deleted: true };
+}
+
 // Downloads the original file for an upload-based assignment.
 export async function getAssignmentSourceFile(assignmentId) {
   const raw = await getRawAssignment(assignmentId);

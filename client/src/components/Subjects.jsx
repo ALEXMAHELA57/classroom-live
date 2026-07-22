@@ -5,6 +5,7 @@ import TopBar from './TopBar.jsx';
 import {
   listSubjects,
   createSubject,
+  deleteSubject,
   listStudents,
   enrollStudent,
   unenrollStudent,
@@ -14,10 +15,14 @@ import {
   listQuizzes,
   uploadQuizFile,
   publishQuiz,
+  unpublishQuiz,
+  deleteQuiz,
   generateAssignment,
   listAssignments,
   uploadAssignmentFile,
   publishAssignment,
+  unpublishAssignment,
+  deleteAssignment,
 } from '../lib/api.js';
 
 export default function Subjects() {
@@ -317,6 +322,29 @@ function SubjectManageCard({ subject, onChanged }) {
     }
   }
 
+  async function handleUnpublishQuiz(quizId) {
+    setError('');
+    try {
+      await unpublishQuiz(quizId);
+      refreshQuizzes();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleDeleteQuiz(quizId, label) {
+    if (!window.confirm(`Delete "${label || 'this quiz'}"? This also deletes any student submissions for it. This can't be undone.`)) {
+      return;
+    }
+    setError('');
+    try {
+      await deleteQuiz(quizId);
+      refreshQuizzes();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   async function handleGenerateAssignment(e) {
     e.preventDefault();
     setGeneratingAssignment(true);
@@ -358,11 +386,60 @@ function SubjectManageCard({ subject, onChanged }) {
     }
   }
 
+  async function handleUnpublishAssignment(assignmentId) {
+    setError('');
+    try {
+      await unpublishAssignment(assignmentId);
+      refreshAssignments();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleDeleteAssignment(assignmentId, label) {
+    if (
+      !window.confirm(
+        `Delete "${label || 'this assignment'}"? This also deletes any student submissions for it. This can't be undone.`
+      )
+    ) {
+      return;
+    }
+    setError('');
+    try {
+      await deleteAssignment(assignmentId);
+      refreshAssignments();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleDeleteSubject() {
+    if (
+      !window.confirm(
+        `Delete "${subject.name}"? This permanently removes its syllabus, roster, quizzes, and assignments — including all student submissions. This can't be undone.`
+      )
+    ) {
+      return;
+    }
+    setError('');
+    try {
+      await deleteSubject(subject.id);
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   return (
     <div className="card subject-card">
-      <h3 onClick={() => setOpen((o) => !o)} className="collapsible">
-        {subject.name} ({subject.enrolledStudentIds.length} enrolled) {open ? '▾' : '▸'}
-      </h3>
+      <div className="subject-card-header">
+        <h3 onClick={() => setOpen((o) => !o)} className="collapsible">
+          {subject.name} ({subject.enrolledStudentIds.length} enrolled) {open ? '▾' : '▸'}
+        </h3>
+        <button className="ghost danger" onClick={handleDeleteSubject}>
+          Delete subject
+        </button>
+      </div>
       {open && (
         <>
           {error && <p className="error">{error}</p>}
@@ -460,24 +537,30 @@ function SubjectManageCard({ subject, onChanged }) {
                     {q.topic || 'Quiz'} — {q.questionCount} questions
                     {q.status === 'draft' && <span className="muted"> · Draft</span>}
                   </span>
-                  <span>
+                  <span className="row-actions">
                     {q.status === 'draft' ? (
                       <>
                         <Link to={`/quizzes/${q.id}/edit`}>
                           <button className="ghost">Review & edit</button>
-                        </Link>{' '}
+                        </Link>
                         <button onClick={() => handlePublishQuiz(q.id)}>Publish</button>
                       </>
                     ) : (
                       <>
                         <Link to={`/quizzes/${q.id}/edit`}>
                           <button className="ghost">Edit</button>
-                        </Link>{' '}
+                        </Link>
                         <Link to={`/quizzes/${q.id}/results`}>
                           <button className="ghost">Results</button>
                         </Link>
+                        <button className="ghost" onClick={() => handleUnpublishQuiz(q.id)}>
+                          Unpublish
+                        </button>
                       </>
                     )}
+                    <button className="ghost danger" onClick={() => handleDeleteQuiz(q.id, q.topic)}>
+                      Delete
+                    </button>
                   </span>
                 </li>
               ))}
@@ -523,24 +606,30 @@ function SubjectManageCard({ subject, onChanged }) {
                     {a.title}
                     {a.status === 'draft' && <span className="muted"> · Draft</span>}
                   </span>
-                  <span>
+                  <span className="row-actions">
                     {a.status === 'draft' ? (
                       <>
                         <Link to={`/assignments/${a.id}/edit`}>
                           <button className="ghost">Review & edit</button>
-                        </Link>{' '}
+                        </Link>
                         <button onClick={() => handlePublishAssignment(a.id)}>Publish</button>
                       </>
                     ) : (
                       <>
                         <Link to={`/assignments/${a.id}/edit`}>
                           <button className="ghost">Edit</button>
-                        </Link>{' '}
+                        </Link>
                         <Link to={`/assignments/${a.id}/results`}>
                           <button className="ghost">Results</button>
                         </Link>
+                        <button className="ghost" onClick={() => handleUnpublishAssignment(a.id)}>
+                          Unpublish
+                        </button>
                       </>
                     )}
+                    <button className="ghost danger" onClick={() => handleDeleteAssignment(a.id, a.title)}>
+                      Delete
+                    </button>
                   </span>
                 </li>
               ))}

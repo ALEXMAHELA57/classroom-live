@@ -53,6 +53,14 @@ export async function createSubject(name) {
   return parseOrThrow(res);
 }
 
+export async function deleteSubject(subjectId) {
+  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  return parseOrThrow(res);
+}
+
 export async function listStudents() {
   const res = await fetch(`${API_BASE}/api/students`, { headers: authHeaders() });
   return parseOrThrow(res);
@@ -171,6 +179,22 @@ export async function publishQuiz(quizId) {
   return parseOrThrow(res);
 }
 
+export async function unpublishQuiz(quizId) {
+  const res = await fetch(`${API_BASE}/api/quizzes/${quizId}/unpublish`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  return parseOrThrow(res);
+}
+
+export async function deleteQuiz(quizId) {
+  const res = await fetch(`${API_BASE}/api/quizzes/${quizId}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  return parseOrThrow(res);
+}
+
 // --- Assignments -------------------------------------------------------
 export async function generateAssignment(subjectId, { topic, dueAt }) {
   const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/assignments`, {
@@ -246,6 +270,22 @@ export async function updateAssignment(assignmentId, { title, instructions, rubr
 export async function publishAssignment(assignmentId) {
   const res = await fetch(`${API_BASE}/api/assignments/${assignmentId}/publish`, {
     method: 'POST',
+    headers: authHeaders(),
+  });
+  return parseOrThrow(res);
+}
+
+export async function unpublishAssignment(assignmentId) {
+  const res = await fetch(`${API_BASE}/api/assignments/${assignmentId}/unpublish`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  return parseOrThrow(res);
+}
+
+export async function deleteAssignment(assignmentId) {
+  const res = await fetch(`${API_BASE}/api/assignments/${assignmentId}`, {
+    method: 'DELETE',
     headers: authHeaders(),
   });
   return parseOrThrow(res);

@@ -258,6 +258,32 @@ export async function publishQuiz(quizId, user) {
   return { id: quizId, status: 'published' };
 }
 
+// Pull a published quiz back to draft — e.g. a mistake was noticed after
+// publishing. Any submissions students already made are left alone.
+export async function unpublishQuiz(quizId, user) {
+  const raw = await getRawQuiz(quizId);
+  if (!raw) throw new Error('Quiz not found');
+  const subject = await subjects.getSubject(raw.subject_id);
+  if (user.role !== 'superadmin' && subject.staffId !== user.id) {
+    throw new Error("Only this subject's teacher can unpublish this");
+  }
+  await db.query("UPDATE quizzes SET status = 'draft' WHERE id = $1", [quizId]);
+  return { id: quizId, status: 'draft' };
+}
+
+// Deletes the quiz and, via ON DELETE CASCADE, any student submissions
+// for it.
+export async function deleteQuiz(quizId, user) {
+  const raw = await getRawQuiz(quizId);
+  if (!raw) throw new Error('Quiz not found');
+  const subject = await subjects.getSubject(raw.subject_id);
+  if (user.role !== 'superadmin' && subject.staffId !== user.id) {
+    throw new Error("Only this subject's teacher can delete this");
+  }
+  await db.query('DELETE FROM quizzes WHERE id = $1', [quizId]);
+  return { id: quizId, deleted: true };
+}
+
 function stripAnswers(questions) {
   return questions.map(({ correctAnswer, rubric, ...rest }) => rest);
 }

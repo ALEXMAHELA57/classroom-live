@@ -416,6 +416,22 @@ button.ghost {
 }
 .roster-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .roster-actions button, .file-row button { font-size: 0.75rem; padding: 4px 8px; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; flex-shrink: 0; }
+
+button.danger {
+  color: var(--error);
+  border-color: rgba(179, 67, 43, 0.35);
+}
+button.danger:hover { background: rgba(179, 67, 43, 0.08); opacity: 1; }
+
+.subject-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.subject-card-header h3 { margin: 0; flex: 1; }
+.subject-card-header button { flex-shrink: 0; font-size: 0.78rem; }
 
 .whiteboard-canvas {
   width: 100%;

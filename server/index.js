@@ -375,6 +375,18 @@ app.get('/api/subjects', auth.requireAuth, async (req, res) => {
   }
 });
 
+// Deletes a subject entirely — enrollments, quizzes, assignments, and
+// their submissions all go with it. No undo, so the client should
+// confirm with the person before calling this.
+app.delete('/api/subjects/:subjectId', auth.requireAuth, auth.requireRole('staff', 'superadmin'), async (req, res) => {
+  try {
+    const result = await subjects.deleteSubject(req.params.subjectId, req.user);
+    res.json({ subject: result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.get('/api/students', auth.requireAuth, auth.requireRole('staff', 'superadmin'), async (req, res) => {
   try {
     const students = (await auth.listUsers()).filter((u) => u.role === 'student' && u.status === 'approved');
@@ -651,6 +663,31 @@ app.post(
   }
 );
 
+// Pull a published quiz back to draft.
+app.post(
+  '/api/quizzes/:quizId/unpublish',
+  auth.requireAuth,
+  auth.requireRole('staff', 'superadmin'),
+  async (req, res) => {
+    try {
+      const result = await quizzes.unpublishQuiz(req.params.quizId, req.user);
+      res.json({ quiz: result });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+);
+
+// Deletes the quiz and any student submissions for it.
+app.delete('/api/quizzes/:quizId', auth.requireAuth, auth.requireRole('staff', 'superadmin'), async (req, res) => {
+  try {
+    const result = await quizzes.deleteQuiz(req.params.quizId, req.user);
+    res.json({ quiz: result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Student view — strips answers unless already submitted.
 app.get('/api/quizzes/:quizId', auth.requireAuth, async (req, res) => {
   try {
@@ -801,6 +838,36 @@ app.post(
   async (req, res) => {
     try {
       const result = await assignments.publishAssignment(req.params.assignmentId, req.user);
+      res.json({ assignment: result });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+);
+
+// Pull a published assignment back to draft.
+app.post(
+  '/api/assignments/:assignmentId/unpublish',
+  auth.requireAuth,
+  auth.requireRole('staff', 'superadmin'),
+  async (req, res) => {
+    try {
+      const result = await assignments.unpublishAssignment(req.params.assignmentId, req.user);
+      res.json({ assignment: result });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+);
+
+// Deletes the assignment and any student submissions for it.
+app.delete(
+  '/api/assignments/:assignmentId',
+  auth.requireAuth,
+  auth.requireRole('staff', 'superadmin'),
+  async (req, res) => {
+    try {
+      const result = await assignments.deleteAssignment(req.params.assignmentId, req.user);
       res.json({ assignment: result });
     } catch (err) {
       res.status(400).json({ error: err.message });
