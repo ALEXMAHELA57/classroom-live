@@ -6,6 +6,8 @@ import JoinRoom from './components/JoinRoom.jsx';
 import Classroom from './components/Classroom.jsx';
 import Login from './components/Login.jsx';
 import Register from './components/Register.jsx';
+import ForgotPassword from './components/ForgotPassword.jsx';
+import ResetPassword from './components/ResetPassword.jsx';
 import AdminUsers from './components/AdminUsers.jsx';
 import Subjects from './components/Subjects.jsx';
 import SyllabusViewer from './components/SyllabusViewer.jsx';
@@ -40,6 +42,8 @@ function Root() {
         <Route path="/" element={<App />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/join/:roomId" element={<JoinRoom />} />
         <Route path="/room/:roomId" element={<Classroom />} />
         <Route path="/subjects" element={<Subjects />} />

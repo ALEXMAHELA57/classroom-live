@@ -137,6 +137,30 @@ app.post('/api/auth/google-register', async (req, res) => {
   }
 });
 
+// Always responds the same way whether or not the email matches an
+// account — see auth.requestPasswordReset for why.
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    const resetBaseUrl = `${CLIENT_ORIGIN}/reset-password`;
+    await auth.requestPasswordReset(email, resetBaseUrl);
+  } catch (err) {
+    console.error('[auth] forgot-password error', err);
+    // Still don't leak anything to the caller — log it and move on.
+  }
+  res.json({ message: 'If an account exists for that email, a reset link has been sent.' });
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body || {};
+    await auth.resetPassword(token, password);
+    res.json({ message: 'Password updated — you can log in now.' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.get('/api/auth/me', auth.requireAuth, (req, res) => {
   res.json({ user: req.user });
 });
@@ -173,6 +197,20 @@ app.patch('/api/admin/users/:id/disable', auth.requireAuth, auth.requireRole('su
     res.status(404).json({ error: err.message });
   }
 });
+
+app.post(
+  '/api/admin/users/:id/reset-password',
+  auth.requireAuth,
+  auth.requireRole('superadmin'),
+  async (req, res) => {
+    try {
+      await auth.adminResetPassword(req.params.id, req.body?.password);
+      res.json({ message: 'Password updated' });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+);
 
 // --- Live (ephemeral) room state -----------------------------------------
 // Everything durable about a room (name, host, time limit, files) lives in

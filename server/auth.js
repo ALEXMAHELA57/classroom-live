@@ -1,12 +1,15 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { nanoid } from 'nanoid';
+import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import * as db from './db.js';
+import * as emailer from './email.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const TOKEN_TTL = '12h';
 const MIN_PASSWORD_LENGTH = 8;
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
@@ -240,4 +243,67 @@ export async function ensureBootstrapSuperadmin() {
   if (existing) return;
   await adminCreateUser({ name: 'Super Admin', email: normalizedEmail, password, role: 'superadmin' });
   console.log(`[auth] Bootstrapped superadmin account: ${normalizedEmail}`);
+}
+
+export function isEmailConfigured() {
+  return emailer.isEmailConfigured();
+}
+
+function hashResetToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+// Starts a self-service password reset. Always resolves without error
+// regardless of whether the email matches an account — returning "no
+// account with that email" would let anyone probe which emails are
+// registered here, which is exactly the kind of thing a reset flow
+// shouldn't leak.
+export async function requestPasswordReset(email, resetBaseUrl) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const row = await getUserByEmail(normalizedEmail);
+  if (!row) return;
+
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  await db.query(
+    `INSERT INTO password_resets (id, user_id, token_hash, expires_at, used, created_at)
+     VALUES ($1, $2, $3, $4, FALSE, $5)`,
+    [nanoid(10), row.id, hashResetToken(rawToken), Date.now() + RESET_TOKEN_TTL_MS, Date.now()]
+  );
+  const resetUrl = `${resetBaseUrl}?token=${rawToken}`;
+  await emailer.sendPasswordResetEmail(row.email, resetUrl);
+}
+
+// Completes a self-service reset — the raw token from the emailed link
+// is hashed and compared against what's stored, so a leaked database
+// alone was never enough to reset an account, only a leaked email.
+export async function resetPassword(token, newPassword) {
+  if (!token) throw new Error('Missing reset token');
+  if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+  }
+  const { rows } = await db.query(
+    `SELECT * FROM password_resets WHERE token_hash = $1 AND used = FALSE AND expires_at > $2`,
+    [hashResetToken(token), Date.now()]
+  );
+  const resetRow = rows[0];
+  if (!resetRow) throw new Error('This reset link is invalid or has expired — request a new one');
+
+  const passwordHash = bcrypt.hashSync(newPassword, 10);
+  await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, resetRow.user_id]);
+  await db.query('UPDATE password_resets SET used = TRUE WHERE id = $1', [resetRow.id]);
+}
+
+// Superadmin resets a user's password directly — no email required.
+// Works as a fallback when email sending isn't configured, or just
+// faster when an admin is already helping the person directly.
+export async function adminResetPassword(userId, newPassword) {
+  if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+  }
+  const passwordHash = bcrypt.hashSync(newPassword, 10);
+  const { rowCount } = await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [
+    passwordHash,
+    userId,
+  ]);
+  if (rowCount === 0) throw new Error('User not found');
 }

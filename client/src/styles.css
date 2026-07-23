@@ -519,6 +519,15 @@ select {
 .admin-table th { background: var(--paper); font-weight: 600; }
 .admin-actions { display: flex; gap: 6px; }
 .admin-actions button { font-size: 0.8rem; padding: 6px 10px; }
+.admin-reset-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+}
+.admin-reset-row input { margin: 0; max-width: 260px; }
+.admin-reset-row button { flex-shrink: 0; }
 
 .status-badge {
   padding: 2px 8px;

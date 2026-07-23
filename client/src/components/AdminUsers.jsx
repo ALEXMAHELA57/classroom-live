@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { API_BASE, getToken } from '../lib/auth.js';
 import TopBar from './TopBar.jsx';
 
@@ -21,6 +21,10 @@ export default function AdminUsers() {
   const [error, setError] = useState('');
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'student' });
   const [creating, setCreating] = useState(false);
+  const [resettingId, setResettingId] = useState(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState('');
+  const [resetting, setResetting] = useState(false);
+  const [resetMessage, setResetMessage] = useState('');
 
   async function refresh() {
     try {
@@ -42,6 +46,23 @@ export default function AdminUsers() {
   async function disable(id) {
     await authedFetch(`/api/admin/users/${id}/disable`, { method: 'PATCH' });
     refresh();
+  }
+
+  async function submitResetPassword(userId) {
+    setResetting(true);
+    setResetMessage('');
+    try {
+      await authedFetch(`/api/admin/users/${userId}/reset-password`, {
+        method: 'POST',
+        body: JSON.stringify({ password: resetPasswordValue }),
+      });
+      setResetMessage('Password updated — let them know their new password directly.');
+      setResetPasswordValue('');
+    } catch (err) {
+      setResetMessage(err.message);
+    } finally {
+      setResetting(false);
+    }
   }
 
   async function createAccount(e) {
@@ -109,26 +130,59 @@ export default function AdminUsers() {
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id}>
-                <td>{u.name}</td>
-                <td>{u.email}</td>
-                <td>{u.role}</td>
-                <td>
-                  <span className={`status-badge status-${u.status}`}>{u.status}</span>
-                </td>
-                <td className="admin-actions">
-                  {u.status !== 'approved' && (
-                    <button className="ghost" onClick={() => approve(u.id)}>
-                      Approve
+              <Fragment key={u.id}>
+                <tr>
+                  <td>{u.name}</td>
+                  <td>{u.email}</td>
+                  <td>{u.role}</td>
+                  <td>
+                    <span className={`status-badge status-${u.status}`}>{u.status}</span>
+                  </td>
+                  <td className="admin-actions">
+                    {u.status !== 'approved' && (
+                      <button className="ghost" onClick={() => approve(u.id)}>
+                        Approve
+                      </button>
+                    )}
+                    {u.status !== 'disabled' && (
+                      <button className="ghost" onClick={() => disable(u.id)}>
+                        Disable
+                      </button>
+                    )}
+                    <button
+                      className="ghost"
+                      onClick={() => {
+                        setResettingId(resettingId === u.id ? null : u.id);
+                        setResetMessage('');
+                        setResetPasswordValue('');
+                      }}
+                    >
+                      Reset password
                     </button>
-                  )}
-                  {u.status !== 'disabled' && (
-                    <button className="ghost" onClick={() => disable(u.id)}>
-                      Disable
-                    </button>
-                  )}
-                </td>
-              </tr>
+                  </td>
+                </tr>
+                {resettingId === u.id && (
+                  <tr>
+                    <td colSpan={5}>
+                      <div className="admin-reset-row">
+                        <input
+                          type="password"
+                          placeholder={`New password for ${u.name}`}
+                          value={resetPasswordValue}
+                          onChange={(e) => setResetPasswordValue(e.target.value)}
+                        />
+                        <button
+                          onClick={() => submitResetPassword(u.id)}
+                          disabled={resetting || resetPasswordValue.length < 8}
+                        >
+                          {resetting ? 'Saving…' : 'Save new password'}
+                        </button>
+                        {resetMessage && <span className="muted">{resetMessage}</span>}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>

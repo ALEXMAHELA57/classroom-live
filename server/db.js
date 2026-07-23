@@ -47,6 +47,18 @@ export async function initSchema() {
       created_at BIGINT NOT NULL
     );
 
+    -- Self-service "forgot password" flow. token_hash stores a SHA-256
+    -- hash of the token that goes out in the email, never the raw
+    -- token — so a database leak alone can't be used to reset accounts.
+    CREATE TABLE IF NOT EXISTS password_resets (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL,
+      expires_at BIGINT NOT NULL,
+      used BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at BIGINT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS rooms (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,

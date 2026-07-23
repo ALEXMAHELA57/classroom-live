@@ -54,6 +54,9 @@ export default function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          <p className="muted" style={{ textAlign: 'right', fontSize: '0.82rem', marginTop: -8 }}>
+            <Link to="/forgot-password">Forgot password?</Link>
+          </p>
           <button type="submit" disabled={loading || !email || !password}>
             {loading ? 'Logging in…' : 'Log in'}
           </button>
