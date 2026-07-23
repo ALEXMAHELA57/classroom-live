@@ -174,13 +174,31 @@ button.ghost {
     gap: 0.5rem;
   }
   .side-panel.open { transform: translateY(0); }
+  .side-panel-top {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin-bottom: 6px;
+  }
   .side-panel-handle {
     width: 40px;
     height: 4px;
     border-radius: 2px;
     background: var(--line);
-    margin: 0 auto 10px;
     cursor: pointer;
+  }
+  .side-panel-close {
+    position: absolute;
+    right: 0;
+    top: -2px;
+    background: var(--sage);
+    color: var(--ink);
+    border: none;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 999px;
   }
   .side-panel-backdrop {
     position: fixed;
@@ -201,6 +219,7 @@ button.ghost {
 
 @media (min-width: 821px) {
   .panel-toggle-btn { display: none; }
+  .side-panel-top { display: none; }
 }
 
 .stage {

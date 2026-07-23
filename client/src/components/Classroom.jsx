@@ -477,17 +477,21 @@ export default function Classroom() {
               {user.role === 'student' && (
                 <button
                   onClick={() => {
-                    setChatOpen(true);
-                    setSidePanelOpen(true);
+                    if (sidePanelOpen && chatOpen) {
+                      setSidePanelOpen(false);
+                    } else {
+                      setChatOpen(true);
+                      setSidePanelOpen(true);
+                    }
                   }}
                 >
                   <span className="ctrl-icon">💬</span>
-                  <span className="ctrl-label">Chat</span>
+                  <span className="ctrl-label">{sidePanelOpen && chatOpen ? 'Close' : 'Chat'}</span>
                 </button>
               )}
-              <button className="panel-toggle-btn" onClick={() => setSidePanelOpen(true)}>
-                <span className="ctrl-icon">🗂️</span>
-                <span className="ctrl-label">Panels</span>
+              <button className="panel-toggle-btn" onClick={() => setSidePanelOpen((o) => !o)}>
+                <span className="ctrl-icon">{sidePanelOpen ? '✕' : '🗂️'}</span>
+                <span className="ctrl-label">{sidePanelOpen ? 'Close' : 'Panels'}</span>
               </button>
               <button onClick={() => navigate('/')}>
                 <span className="ctrl-icon">🚪</span>
@@ -498,7 +502,12 @@ export default function Classroom() {
 
           {sidePanelOpen && <div className="side-panel-backdrop" onClick={() => setSidePanelOpen(false)} />}
           <aside className={`side-panel ${sidePanelOpen ? 'open' : ''}`}>
-            <div className="side-panel-handle" onClick={() => setSidePanelOpen(false)} />
+            <div className="side-panel-top">
+              <div className="side-panel-handle" onClick={() => setSidePanelOpen(false)} />
+              <button className="side-panel-close" onClick={() => setSidePanelOpen(false)}>
+                ✕ Close
+              </button>
+            </div>
             {isTeacher && <Roster />}
             {isTeacher ? <HandRaiseQueue /> : <HandRaiseButton />}
             <Whiteboard isTeacher={isTeacher} />
