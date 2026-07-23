@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { register } from '../lib/auth.js';
+import { register, registerWithGoogle } from '../lib/auth.js';
+import GoogleButton from './GoogleButton.jsx';
+import PasswordStrength, { isPasswordValid } from './PasswordStrength.jsx';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -27,6 +29,16 @@ export default function Register() {
     }
   }
 
+  async function handleGoogleCredential(credential) {
+    setError('');
+    try {
+      await registerWithGoogle(credential, form.role);
+      setDone(true);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   if (done) {
     return (
       <div className="auth-shell">
@@ -48,6 +60,27 @@ export default function Register() {
         <div className="auth-mark">CL</div>
         <h1>Create an account</h1>
         <p className="muted">A few details and you're set.</p>
+        <label>I am a</label>
+        <div className="role-toggle">
+          <button
+            type="button"
+            className={form.role === 'student' ? 'active' : ''}
+            onClick={() => update('role', 'student')}
+          >
+            Student
+          </button>
+          <button
+            type="button"
+            className={form.role === 'staff' ? 'active' : ''}
+            onClick={() => update('role', 'staff')}
+          >
+            Staff / teacher
+          </button>
+        </div>
+        <div className="google-button-wrap">
+          <GoogleButton text="signup_with" onCredential={handleGoogleCredential} />
+        </div>
+        <div className="auth-divider"><span>or use email</span></div>
         <form onSubmit={submit}>
           <label htmlFor="name">Full name</label>
           <input id="name" value={form.name} onChange={(e) => update('name', e.target.value)} autoFocus />
@@ -65,24 +98,11 @@ export default function Register() {
             value={form.password}
             onChange={(e) => update('password', e.target.value)}
           />
-          <label>I am a</label>
-          <div className="role-toggle">
-            <button
-              type="button"
-              className={form.role === 'student' ? 'active' : ''}
-              onClick={() => update('role', 'student')}
-            >
-              Student
-            </button>
-            <button
-              type="button"
-              className={form.role === 'staff' ? 'active' : ''}
-              onClick={() => update('role', 'staff')}
-            >
-              Staff / teacher
-            </button>
-          </div>
-          <button type="submit" disabled={loading || !form.name || !form.email || !form.password}>
+          <PasswordStrength password={form.password} />
+          <button
+            type="submit"
+            disabled={loading || !form.name || !form.email || !isPasswordValid(form.password)}
+          >
             {loading ? 'Creating…' : 'Create account'}
           </button>
           {error && <p className="error">{error}</p>}

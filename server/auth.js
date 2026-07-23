@@ -1,10 +1,33 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { nanoid } from 'nanoid';
+import { OAuth2Client } from 'google-auth-library';
 import * as db from './db.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const TOKEN_TTL = '12h';
+const MIN_PASSWORD_LENGTH = 8;
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
+
+export function isGoogleConfigured() {
+  return Boolean(googleClient);
+}
+
+// Verifies a Google Identity Services credential (a signed JWT the
+// browser gets directly from Google) and pulls out the account's email —
+// this is what proves "this really is that Google account," not
+// something the browser or a modified client could fake.
+async function verifyGoogleCredential(credential) {
+  if (!googleClient) throw new Error('Google sign-in is not configured on this server');
+  if (!credential) throw new Error('Missing Google credential');
+  const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
+  const payload = ticket.getPayload();
+  if (!payload?.email) throw new Error("Google didn't provide an email for this account");
+  if (!payload.email_verified) throw new Error("This Google account's email isn't verified");
+  return { email: payload.email.toLowerCase(), name: payload.name || payload.email.split('@')[0] };
+}
 
 export const ROLES = ['student', 'staff', 'superadmin'];
 
@@ -41,6 +64,9 @@ export async function registerUser({ name, email, password, role }) {
   if (!name || !normalizedEmail || !password) {
     throw new Error('name, email, and password are required');
   }
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+  }
   if (await getUserByEmail(normalizedEmail)) {
     throw new Error('An account with that email already exists');
   }
@@ -68,6 +94,9 @@ export async function adminCreateUser({ name, email, password, role }) {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   if (!name || !normalizedEmail || !password || !ROLES.includes(role)) {
     throw new Error('name, email, password, and a valid role are required');
+  }
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
   }
   if (await getUserByEmail(normalizedEmail)) {
     throw new Error('An account with that email already exists');
@@ -111,6 +140,51 @@ export async function login({ email, password }) {
   }
   const token = jwt.sign({ sub: row.id }, JWT_SECRET, { expiresIn: TOKEN_TTL });
   return { token, user: toPublicUser(row) };
+}
+
+// Signs in with an existing account using a verified Google identity.
+// Google sign-in isn't a separate identity system — it just proves
+// control of an email that must already match an account here.
+export async function loginWithGoogle(credential) {
+  const { email } = await verifyGoogleCredential(credential);
+  const row = await getUserByEmail(email);
+  if (!row) {
+    throw new Error('No account found for this Google email — register first');
+  }
+  if (row.status === 'pending') throw new Error('Your account is awaiting admin approval');
+  if (row.status === 'disabled') throw new Error('This account has been disabled');
+  const token = jwt.sign({ sub: row.id }, JWT_SECRET, { expiresIn: TOKEN_TTL });
+  return { token, user: toPublicUser(row) };
+}
+
+// Registers a brand-new account from a verified Google identity instead
+// of a password. Still lands as 'pending', same as normal self-signup —
+// Google verifying the email doesn't skip admin approval.
+export async function registerWithGoogle(credential, role) {
+  const { email, name } = await verifyGoogleCredential(credential);
+  if (await getUserByEmail(email)) {
+    throw new Error('An account with that email already exists — sign in instead');
+  }
+  const safeRole = role === 'staff' ? 'staff' : 'student'; // self-signup can never grant superadmin
+  const row = {
+    id: nanoid(10),
+    name,
+    email,
+    // No password on a Google-only account. This random hash can't be
+    // produced by anything the person could type, so password login
+    // stays impossible for it — Google is the only way in, which is
+    // correct since they never set a password.
+    passwordHash: bcrypt.hashSync(nanoid(32), 10),
+    role: safeRole,
+    status: 'pending',
+    createdAt: Date.now(),
+  };
+  await db.query(
+    `INSERT INTO users (id, name, email, password_hash, role, status, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [row.id, row.name, row.email, row.passwordHash, row.role, row.status, row.createdAt]
+  );
+  return toPublicUser({ ...row, created_at: row.createdAt });
 }
 
 export async function verifyToken(token) {

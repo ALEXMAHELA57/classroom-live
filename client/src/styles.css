@@ -780,6 +780,42 @@ select {
   border-color: var(--chalkboard);
 }
 
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.google-button-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.password-strength {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -8px 0 12px;
+}
+.password-strength-bars { display: flex; gap: 4px; flex: 1; }
+.ps-bar { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
+.ps-bar.ps-filled.ps-s1 { background: #b3432b; }
+.ps-bar.ps-filled.ps-s2 { background: #d98a3d; }
+.ps-bar.ps-filled.ps-s3 { background: #8fa84e; }
+.ps-bar.ps-filled.ps-s4 { background: #2f7d4f; }
+.password-strength-label { font-size: 0.75rem; color: var(--muted); flex-shrink: 0; white-space: nowrap; }
+
 /* --- PWA install banner --- */
 .install-banner {
   position: fixed;

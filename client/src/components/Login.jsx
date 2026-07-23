@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext.jsx';
+import GoogleButton from './GoogleButton.jsx';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState('');
@@ -24,6 +25,16 @@ export default function Login() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGoogleCredential(credential) {
+    setError('');
+    try {
+      await loginWithGoogle(credential);
+      navigate(redirectTo);
+    } catch (err) {
+      setError(err.message);
     }
   }
 
@@ -48,6 +59,10 @@ export default function Login() {
           </button>
           {error && <p className="error">{error}</p>}
         </form>
+        <div className="auth-divider"><span>or</span></div>
+        <div className="google-button-wrap">
+          <GoogleButton text="signin_with" onCredential={handleGoogleCredential} />
+        </div>
         <p className="muted center-pad-sm">
           No account? <Link to="/register">Register</Link>
         </p>

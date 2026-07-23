@@ -20,13 +20,19 @@ export function AuthProvider({ children }) {
     return u;
   }
 
+  async function loginWithGoogle(credential) {
+    const u = await authApi.loginWithGoogle(credential);
+    setUser(u);
+    return u;
+  }
+
   function logout() {
     authApi.logout();
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, setUser }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, logout, setUser }}>
       {children}
     </AuthContext.Provider>
   );

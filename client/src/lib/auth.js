@@ -37,6 +37,26 @@ export async function login({ email, password }) {
   return data.user;
 }
 
+export async function loginWithGoogle(credential) {
+  const res = await fetch(`${API_BASE}/api/auth/google-login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential }),
+  });
+  const data = await parseOrThrow(res);
+  setToken(data.token);
+  return data.user;
+}
+
+export async function registerWithGoogle(credential, role) {
+  const res = await fetch(`${API_BASE}/api/auth/google-register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential, role }),
+  });
+  return parseOrThrow(res);
+}
+
 export function logout() {
   clearToken();
 }
