@@ -271,6 +271,7 @@ function getLiveRoom(roomId) {
       activeEgressId: null,
       activeRecordingKey: null,
       timeLimitTimer: null,
+      noShowTimer: null,
     });
   }
   return liveRooms.get(roomId);
@@ -311,6 +312,7 @@ async function endSession(roomId, reason) {
   }
   const live = liveRooms.get(roomId);
   if (live?.timeLimitTimer) clearTimeout(live.timeLimitTimer);
+  if (live?.noShowTimer) clearTimeout(live.noShowTimer);
 }
 
 function scheduleTimeLimit(roomId, endsAt) {
@@ -319,6 +321,22 @@ function scheduleTimeLimit(roomId, endsAt) {
   if (live.timeLimitTimer) clearTimeout(live.timeLimitTimer);
   const delay = Math.max(0, endsAt - Date.now());
   live.timeLimitTimer = setTimeout(() => endSession(roomId, 'time-limit'), delay);
+}
+
+// If nobody at all joins a room within 15 minutes of creating it, it's
+// safe to assume the class isn't happening (forgotten invite, wrong
+// link, plans changed) — auto-end it so it doesn't sit around forever
+// looking "live" to a superadmin checking in on active sessions.
+const NO_SHOW_TIMEOUT_MS = 15 * 60_000;
+function scheduleNoShowCheck(roomId) {
+  const live = getLiveRoom(roomId);
+  if (live.noShowTimer) clearTimeout(live.noShowTimer);
+  live.noShowTimer = setTimeout(() => {
+    const current = liveRooms.get(roomId);
+    if (current && current.participants.size === 0) {
+      endSession(roomId, 'no-show');
+    }
+  }, NO_SHOW_TIMEOUT_MS);
 }
 
 // Superadmin can see every currently ongoing session (not just their own)
@@ -333,17 +351,24 @@ app.get('/api/admin/live-sessions', auth.requireAuth, auth.requireRole('superadm
        FROM rooms r JOIN users u ON u.id = r.host_user_id
        WHERE r.ended = false ORDER BY r.created_at DESC`
     );
-    const sessions = rows.map((r) => {
-      const live = liveRooms.get(r.id);
-      return {
+    const sessions = rows
+      // A DB row with ended = false only means nobody has explicitly
+      // closed it yet — it says nothing about whether anyone is
+      // actually connected right now. A room where the host just closed
+      // their browser tab (or a restart wiped the in-memory timers that
+      // would've caught this) would otherwise sit here forever looking
+      // "live." Only rooms with a real, current participant count as
+      // active.
+      .map((r) => ({ row: r, live: liveRooms.get(r.id) }))
+      .filter(({ live }) => live && live.participants.size > 0)
+      .map(({ row: r, live }) => ({
         roomId: r.id,
         name: r.name,
         teacherName: r.teacher_name,
         createdAt: Number(r.created_at),
-        teacherConnected: Boolean(live?.teacherSocketId),
-        studentCount: live ? [...live.participants.values()].filter((p) => !p.isTeacher).length : 0,
-      };
-    });
+        teacherConnected: Boolean(live.teacherSocketId),
+        studentCount: [...live.participants.values()].filter((p) => !p.isTeacher).length,
+      }));
     res.json({ sessions });
   } catch (err) {
     console.error(err);
@@ -367,6 +392,7 @@ app.post('/api/rooms', auth.requireAuth, auth.requireRole('staff', 'superadmin')
     });
     getLiveRoom(room.id);
     scheduleTimeLimit(room.id, endsAt);
+    scheduleNoShowCheck(room.id);
 
     res.json({ roomId: room.id, inviteLink: `${PRIMARY_CLIENT_ORIGIN}/join/${room.id}`, endsAt });
   } catch (err) {
@@ -1333,6 +1359,10 @@ io.on('connection', (socket) => {
         live.participants.delete(existingSocketId);
       }
       live.userIdToSocket.set(user.id, socket.id);
+      if (live.noShowTimer) {
+        clearTimeout(live.noShowTimer);
+        live.noShowTimer = null;
+      }
 
       socket.join(roomId);
       live.participants.set(socket.id, { name: user.name, isTeacher, joinedAt: Date.now(), identity: null });
