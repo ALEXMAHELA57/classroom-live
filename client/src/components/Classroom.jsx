@@ -75,14 +75,23 @@ export default function Classroom() {
 
   // Desktops typically have exactly one camera — no point offering a
   // "flip camera" button there. Most phones/tablets have at least two.
+  // Browsers commonly under-report (or don't report at all) the true
+  // camera count until permission has actually been granted at least
+  // once, so this mount-time check is just a first guess — checkCameraCount
+  // gets called again right after the camera is actually turned on below,
+  // which is when the count becomes reliable.
+  async function checkCameraCount() {
+    try {
+      const devices = await navigator.mediaDevices?.enumerateDevices();
+      const cameraCount = (devices || []).filter((d) => d.kind === 'videoinput').length;
+      setHasMultipleCameras(cameraCount > 1);
+    } catch {
+      setHasMultipleCameras(false);
+    }
+  }
+
   useEffect(() => {
-    navigator.mediaDevices
-      ?.enumerateDevices()
-      .then((devices) => {
-        const cameraCount = devices.filter((d) => d.kind === 'videoinput').length;
-        setHasMultipleCameras(cameraCount > 1);
-      })
-      .catch(() => setHasMultipleCameras(false));
+    checkCameraCount();
   }, []);
   const [handRaised, setHandRaised] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -291,6 +300,7 @@ export default function Classroom() {
     try {
       await room.localParticipant.setCameraEnabled(next, { facingMode });
       setCamOn(next);
+      if (next) checkCameraCount();
     } catch (err) {
       setMediaError(describeMediaError(err, 'camera'));
     }
