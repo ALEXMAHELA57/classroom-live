@@ -62,6 +62,14 @@ export default function Classroom() {
   const [selfRecording, setSelfRecording] = useState(false);
   const [selfRecordUploading, setSelfRecordUploading] = useState(false);
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
+
+  // When there's no live session to connect to, the stage (and its
+  // "Panels" toggle button) don't render at all — without this, mobile
+  // users would have no way to open the drawer that holds recordings and
+  // files, since that toggle only exists as part of the stage toolbar.
+  useEffect(() => {
+    if (status === 'error') setSidePanelOpen(true);
+  }, [status]);
   const [handRaised, setHandRaised] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [selfRecordError, setSelfRecordError] = useState('');
@@ -430,15 +438,17 @@ export default function Classroom() {
       {status === 'connecting' && <p className="muted center-pad">Connecting…</p>}
       {status === 'ended' && <p className="error center-pad">{errorMsg}</p>}
       {status === 'error' && (
-        <p className="error center-pad">
-          Could not connect{errorMsg ? `: ${errorMsg}` : ''}. Check the server is running and
-          LiveKit credentials are set.
+        <p className="muted center-pad">
+          This class isn't live right now{errorMsg ? ` (${errorMsg})` : ''} — if you were expecting
+          to join a session, check the link or ask your teacher. Recordings and files from past
+          sessions are still available below, if there are any.
         </p>
       )}
 
       {status !== 'ended' && (
         <main className="classroom-grid">
-          <section className="stage">
+          {(status === 'connecting' || status === 'connected') && (
+            <section className="stage">
             <div className="stage-main">
               {tiles.length === 0 ? (
                 <p className="muted">Nothing is being shared yet.</p>
@@ -498,7 +508,8 @@ export default function Classroom() {
                 <span className="ctrl-label">Leave</span>
               </button>
             </div>
-          </section>
+            </section>
+          )}
 
           {sidePanelOpen && <div className="side-panel-backdrop" onClick={() => setSidePanelOpen(false)} />}
           <aside className={`side-panel ${sidePanelOpen ? 'open' : ''}`}>
