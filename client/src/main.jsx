@@ -8,6 +8,7 @@ import Login from './components/Login.jsx';
 import Register from './components/Register.jsx';
 import ForgotPassword from './components/ForgotPassword.jsx';
 import ResetPassword from './components/ResetPassword.jsx';
+import Profile from './components/Profile.jsx';
 import AdminUsers from './components/AdminUsers.jsx';
 import Subjects from './components/Subjects.jsx';
 import SyllabusViewer from './components/SyllabusViewer.jsx';
@@ -57,6 +58,7 @@ function Root() {
         <Route path="/assignments/:assignmentId/edit" element={<AssignmentEditor />} />
         <Route path="/subjects/:subjectId/assignments/new" element={<AssignmentEditor />} />
         <Route path="/billing" element={<Billing />} />
+        <Route path="/profile" element={<Profile />} />
         <Route
           path="/admin/live-sessions"
           element={

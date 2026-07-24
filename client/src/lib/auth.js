@@ -75,4 +75,23 @@ export async function fetchMe() {
   return data.user;
 }
 
+export async function updateProfile({ name }) {
+  const res = await fetch(`${API_BASE}/api/auth/me`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify({ name }),
+  });
+  const data = await parseOrThrow(res);
+  return data.user;
+}
+
+export async function changePassword({ currentPassword, newPassword }) {
+  const res = await fetch(`${API_BASE}/api/auth/change-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  return parseOrThrow(res);
+}
+
 export { API_BASE };

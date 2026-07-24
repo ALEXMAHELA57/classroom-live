@@ -98,6 +98,12 @@ export default function App() {
               <span className="dash-tile-desc">Manage your plan and payment details.</span>
             </Link>
 
+            <Link to="/profile" className="dash-tile">
+              <div className="dash-tile-icon">👤</div>
+              <span className="dash-tile-title">Profile</span>
+              <span className="dash-tile-desc">Update your name or change your password.</span>
+            </Link>
+
             {user.role === 'student' && (
               <Link to="/my-recordings" className="dash-tile">
                 <div className="dash-tile-icon">🎥</div>

@@ -307,3 +307,33 @@ export async function adminResetPassword(userId, newPassword) {
   ]);
   if (rowCount === 0) throw new Error('User not found');
 }
+
+// Lets a signed-in person update their own display name — anyone can do
+// this for themselves, no admin approval needed (unlike role/status,
+// which stay admin-controlled).
+export async function updateOwnName(userId, name) {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) throw new Error('Name cannot be empty');
+  const { rows } = await db.query('UPDATE users SET name = $1 WHERE id = $2 RETURNING *', [trimmed, userId]);
+  if (!rows[0]) throw new Error('User not found');
+  return toPublicUser(rows[0]);
+}
+
+// Lets a signed-in person change their own password. Requires their
+// current password — unlike the admin-reset and email-reset-link paths,
+// which don't, because "I'm already logged in as this account and want
+// to change my password" is a different trust level than an admin
+// acting on someone's behalf or a reset link that already proved email
+// control.
+export async function changeOwnPassword(userId, currentPassword, newPassword) {
+  const row = await getUserById(userId);
+  if (!row) throw new Error('User not found');
+  if (!bcrypt.compareSync(currentPassword || '', row.password_hash)) {
+    throw new Error('Current password is incorrect');
+  }
+  if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+  }
+  const passwordHash = bcrypt.hashSync(newPassword, 10);
+  await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, userId]);
+}

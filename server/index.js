@@ -186,6 +186,25 @@ app.get('/api/auth/me', auth.requireAuth, (req, res) => {
   res.json({ user: req.user });
 });
 
+app.patch('/api/auth/me', auth.requireAuth, async (req, res) => {
+  try {
+    const user = await auth.updateOwnName(req.user.id, req.body?.name);
+    res.json({ user });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/change-password', auth.requireAuth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    await auth.changeOwnPassword(req.user.id, currentPassword, newPassword);
+    res.json({ message: 'Password updated' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // --- Superadmin: manage accounts ----------------------------------------
 app.get('/api/admin/users', auth.requireAuth, auth.requireRole('superadmin'), async (req, res) => {
   try {
