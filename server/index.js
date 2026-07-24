@@ -37,6 +37,27 @@ const {
   S3_ENDPOINT,
 } = process.env;
 
+// CLIENT_ORIGIN can be a single URL or a comma-separated list (e.g. an
+// apex domain plus its www subdomain) — the Access-Control-Allow-Origin
+// header can only ever contain exactly one origin per response, never a
+// literal comma-joined list, so this checks the incoming request's
+// origin against the allowed set and echoes back just that one.
+const ALLOWED_CLIENT_ORIGINS = CLIENT_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean);
+// A single canonical origin for building links that get sent elsewhere
+// (invite links, password reset emails) — those need one definite URL,
+// not a set of allowed ones. Defaults to the first configured origin.
+const PRIMARY_CLIENT_ORIGIN = ALLOWED_CLIENT_ORIGINS[0];
+
+function corsOriginCheck(origin, callback) {
+  // No origin header at all (e.g. curl, server-to-server, some webhooks)
+  // — allow it through; there's nothing to check against.
+  if (!origin || ALLOWED_CLIENT_ORIGINS.includes(origin)) {
+    callback(null, true);
+  } else {
+    callback(new Error(`Origin ${origin} is not allowed`));
+  }
+}
+
 if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET || !LIVEKIT_URL) {
   console.warn(
     '[warn] LIVEKIT_API_KEY / LIVEKIT_API_SECRET / LIVEKIT_URL are not set. ' +
@@ -66,7 +87,7 @@ const upload = multer({
 });
 
 const app = express();
-app.use(cors({ origin: CLIENT_ORIGIN }));
+app.use(cors({ origin: corsOriginCheck }));
 
 // LiveKit calls this when an egress (recording) actually finishes
 // uploading — this is what lets us know a recording is truly ready to
@@ -142,7 +163,7 @@ app.post('/api/auth/google-register', async (req, res) => {
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
     const { email } = req.body || {};
-    const resetBaseUrl = `${CLIENT_ORIGIN}/reset-password`;
+    const resetBaseUrl = `${PRIMARY_CLIENT_ORIGIN}/reset-password`;
     await auth.requestPasswordReset(email, resetBaseUrl);
   } catch (err) {
     console.error('[auth] forgot-password error', err);
@@ -328,7 +349,7 @@ app.post('/api/rooms', auth.requireAuth, auth.requireRole('staff', 'superadmin')
     getLiveRoom(room.id);
     scheduleTimeLimit(room.id, endsAt);
 
-    res.json({ roomId: room.id, inviteLink: `${CLIENT_ORIGIN}/join/${room.id}`, endsAt });
+    res.json({ roomId: room.id, inviteLink: `${PRIMARY_CLIENT_ORIGIN}/join/${room.id}`, endsAt });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Could not create room' });
@@ -1248,7 +1269,7 @@ process.on('unhandledRejection', (err) => {
 
 const server = http.createServer(app);
 const io = new SocketIOServer(server, {
-  cors: { origin: CLIENT_ORIGIN },
+  cors: { origin: ALLOWED_CLIENT_ORIGINS },
 });
 
 io.on('connection', (socket) => {
