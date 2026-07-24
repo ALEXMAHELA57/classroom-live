@@ -46,6 +46,8 @@ export default function Classroom() {
   const [errorMsg, setErrorMsg] = useState('');
   const [micOn, setMicOn] = useState(false);
   const [camOn, setCamOn] = useState(false);
+  const [facingMode, setFacingMode] = useState('user');
+  const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
   const [screenOn, setScreenOn] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
   const [copied, setCopied] = useState(false);
@@ -70,6 +72,18 @@ export default function Classroom() {
   useEffect(() => {
     if (status === 'error') setSidePanelOpen(true);
   }, [status]);
+
+  // Desktops typically have exactly one camera — no point offering a
+  // "flip camera" button there. Most phones/tablets have at least two.
+  useEffect(() => {
+    navigator.mediaDevices
+      ?.enumerateDevices()
+      .then((devices) => {
+        const cameraCount = devices.filter((d) => d.kind === 'videoinput').length;
+        setHasMultipleCameras(cameraCount > 1);
+      })
+      .catch(() => setHasMultipleCameras(false));
+  }, []);
   const [handRaised, setHandRaised] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [selfRecordError, setSelfRecordError] = useState('');
@@ -275,8 +289,27 @@ export default function Classroom() {
     if (!room) return;
     const next = !camOn;
     try {
-      await room.localParticipant.setCameraEnabled(next);
+      await room.localParticipant.setCameraEnabled(next, { facingMode });
       setCamOn(next);
+    } catch (err) {
+      setMediaError(describeMediaError(err, 'camera'));
+    }
+  }
+
+  // Switches between front ("user") and back ("environment") cameras on
+  // devices that have both — restartTrack swaps the capture device on
+  // the already-published track rather than a full disable/re-enable,
+  // so it doesn't interrupt the call for anyone watching.
+  async function flipCamera() {
+    const room = roomRef.current;
+    if (!room || !camOn) return;
+    const nextFacing = facingMode === 'environment' ? 'user' : 'environment';
+    try {
+      const publication = room.localParticipant.getTrackPublication(Track.Source.Camera);
+      const track = publication?.videoTrack;
+      if (!track) return;
+      await track.restartTrack({ facingMode: nextFacing });
+      setFacingMode(nextFacing);
     } catch (err) {
       setMediaError(describeMediaError(err, 'camera'));
     }
@@ -453,7 +486,7 @@ export default function Classroom() {
               {tiles.length === 0 ? (
                 <p className="muted">Nothing is being shared yet.</p>
               ) : (
-                <div className="tile-grid">
+                <div className="tile-grid" style={{ '--tile-columns': Math.ceil(Math.sqrt(tiles.length)) }}>
                   {tiles.map((t) => (
                     <VideoTile key={t.sid} tile={t} />
                   ))}
@@ -472,6 +505,12 @@ export default function Classroom() {
                 <span className="ctrl-icon">{camOn ? '📷' : '🚫'}</span>
                 <span className="ctrl-label">{camOn ? 'Stop video' : 'Start video'}</span>
               </button>
+              {camOn && hasMultipleCameras && (
+                <button onClick={flipCamera}>
+                  <span className="ctrl-icon">🔄</span>
+                  <span className="ctrl-label">Flip</span>
+                </button>
+              )}
               {SCREEN_SHARE_SUPPORTED && (
                 <button onClick={toggleScreenShare}>
                   <span className="ctrl-icon">🖥️</span>
