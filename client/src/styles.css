@@ -681,7 +681,7 @@ select {
 }
 .dashboard-header {
   padding: 2rem 1.5rem 1rem;
-  max-width: 920px;
+  max-width: 760px;
   margin: 0 auto;
 }
 .dashboard-eyebrow {
@@ -693,11 +693,11 @@ select {
   margin: 0 0 4px;
 }
 .dashboard-header h1 { font-size: 1.9rem; }
-.dashboard-body { max-width: 920px; margin: 0 auto; padding: 0 1.5rem 3rem; }
+.dashboard-body { max-width: 760px; margin: 0 auto; padding: 0 1.5rem 3rem; }
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 14px;
   margin-top: 1.25rem;
 }
@@ -735,6 +735,12 @@ select {
 .dash-tile.primary .dash-tile-icon { background: rgba(241, 239, 230, 0.15); }
 
 .dashboard-section + .dashboard-section { margin-top: 1.75rem; }
+
+.dashboard-footer {
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
 
 /* --- Auth pages --- */
 .auth-shell {

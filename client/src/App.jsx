@@ -138,9 +138,11 @@ export default function App() {
           </div>
         </div>
 
-        <button className="ghost" style={{ marginTop: '2rem' }} onClick={logout}>
-          Log out
-        </button>
+        <div className="dashboard-footer">
+          <button className="ghost" onClick={logout}>
+            Log out
+          </button>
+        </div>
       </div>
     </div>
   );
