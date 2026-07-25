@@ -9,15 +9,23 @@ function toPublicRoom(row) {
     createdAt: Number(row.created_at),
     endsAt: row.ends_at ? Number(row.ends_at) : null,
     ended: row.ended,
+    subjectId: row.subject_id || null,
   };
 }
 
-export async function createRoom({ name, hostUserId, endsAt }) {
-  const row = { id: nanoid(8), name, hostUserId, createdAt: Date.now(), endsAt: endsAt || null };
+export async function createRoom({ name, hostUserId, endsAt, subjectId }) {
+  const row = {
+    id: nanoid(8),
+    name,
+    hostUserId,
+    createdAt: Date.now(),
+    endsAt: endsAt || null,
+    subjectId: subjectId || null,
+  };
   await db.query(
-    `INSERT INTO rooms (id, name, host_user_id, created_at, ends_at, ended)
-     VALUES ($1, $2, $3, $4, $5, false)`,
-    [row.id, row.name, row.hostUserId, row.createdAt, row.endsAt]
+    `INSERT INTO rooms (id, name, host_user_id, created_at, ends_at, ended, subject_id)
+     VALUES ($1, $2, $3, $4, $5, false, $6)`,
+    [row.id, row.name, row.hostUserId, row.createdAt, row.endsAt, row.subjectId]
   );
   return toPublicRoom({
     id: row.id,
@@ -26,6 +34,7 @@ export async function createRoom({ name, hostUserId, endsAt }) {
     created_at: row.createdAt,
     ends_at: row.endsAt,
     ended: false,
+    subject_id: row.subjectId,
   });
 }
 
@@ -47,6 +56,52 @@ export async function listActiveTimedRooms() {
     [Date.now()]
   );
   return rows.map(toPublicRoom);
+}
+
+// Records the first time a student joins a room — safe to call on every
+// join or reconnect, since ON CONFLICT keeps only the first join time
+// per student. Used to derive present/absent against a subject's roster.
+export async function recordAttendance(roomId, studentId) {
+  await db.query(
+    `INSERT INTO room_attendance (id, room_id, student_id, joined_at)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (room_id, student_id) DO NOTHING`,
+    [nanoid(10), roomId, studentId, Date.now()]
+  );
+}
+
+// Compares a room's actual joiners against its linked subject's roster.
+// A room with no subject_id has no roster to compare against, so
+// attendance isn't meaningful for it.
+export async function getAttendance(roomId) {
+  const room = await getRoom(roomId);
+  if (!room) throw new Error('Room not found');
+  if (!room.subjectId) return { hasSubject: false, present: [], absent: [] };
+
+  const { rows: enrolledRows } = await db.query(
+    `SELECT u.id, u.name, u.email
+     FROM subject_enrollments se
+     JOIN users u ON u.id = se.student_id
+     WHERE se.subject_id = $1
+     ORDER BY u.name`,
+    [room.subjectId]
+  );
+  const { rows: attendanceRows } = await db.query(
+    'SELECT student_id, joined_at FROM room_attendance WHERE room_id = $1',
+    [roomId]
+  );
+  const joinedMap = new Map(attendanceRows.map((r) => [r.student_id, Number(r.joined_at)]));
+
+  const present = [];
+  const absent = [];
+  for (const s of enrolledRows) {
+    if (joinedMap.has(s.id)) {
+      present.push({ id: s.id, name: s.name, email: s.email, joinedAt: joinedMap.get(s.id) });
+    } else {
+      absent.push({ id: s.id, name: s.name, email: s.email });
+    }
+  }
+  return { hasSubject: true, present, absent };
 }
 
 export async function addRoomFile(roomId, { filename, originalName, sizeBytes, uploadedBy }) {

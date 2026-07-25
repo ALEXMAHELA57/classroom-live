@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './lib/AuthContext.jsx';
-import { createRoom } from './lib/api.js';
+import { createRoom, listSubjects } from './lib/api.js';
 
 export default function App() {
   const { user, loading, logout } = useAuth();
@@ -9,6 +9,17 @@ export default function App() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
   const [duration, setDuration] = useState('');
+  const [subjects, setSubjects] = useState([]);
+  const [subjectId, setSubjectId] = useState('');
+
+  const canHost = user?.role === 'staff' || user?.role === 'superadmin';
+
+  useEffect(() => {
+    if (!canHost) return;
+    listSubjects()
+      .then((data) => setSubjects(data.subjects))
+      .catch(() => {});
+  }, [canHost]);
 
   if (loading) return null;
 
@@ -32,7 +43,7 @@ export default function App() {
     setStarting(true);
     setError('');
     try {
-      const { roomId } = await createRoom(duration ? Number(duration) : null);
+      const { roomId } = await createRoom(duration ? Number(duration) : null, subjectId || null);
       navigate(`/room/${roomId}`);
     } catch (err) {
       setError(err.message);
@@ -41,7 +52,6 @@ export default function App() {
     }
   }
 
-  const canHost = user.role === 'staff' || user.role === 'superadmin';
   const roleLabel = { staff: 'Teacher', student: 'Student', superadmin: 'Admin' }[user.role] || user.role;
 
   return (
@@ -58,6 +68,20 @@ export default function App() {
             <div className="dash-tile-icon">●</div>
             <span className="dash-tile-title">Start a class</span>
             <span className="dash-tile-desc">Opens a live room right away — share the link with your students.</span>
+            {subjects.length > 0 && (
+              <select
+                value={subjectId}
+                onChange={(e) => setSubjectId(e.target.value)}
+                style={{ marginTop: 8 }}
+              >
+                <option value="">No subject (attendance won't be tracked)</option>
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            )}
             <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
               <input
                 id="duration"

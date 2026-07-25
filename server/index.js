@@ -380,8 +380,19 @@ app.get('/api/admin/live-sessions', auth.requireAuth, auth.requireRole('superadm
 // host. An optional durationMinutes sets a hard time limit: the server
 // (not the client's clock) disconnects everyone when it's up.
 app.post('/api/rooms', auth.requireAuth, auth.requireRole('staff', 'superadmin'), async (req, res) => {
+  const { durationMinutes, subjectId } = req.body || {};
+
+  let resolvedSubjectId = null;
+  if (subjectId) {
+    try {
+      const subject = await subjects.getOwnedSubject(subjectId, req.user);
+      resolvedSubjectId = subject.id;
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+  }
+
   try {
-    const { durationMinutes } = req.body || {};
     const minutes = Number(durationMinutes);
     const endsAt = Number.isFinite(minutes) && minutes > 0 ? Date.now() + minutes * 60_000 : null;
 
@@ -389,6 +400,7 @@ app.post('/api/rooms', auth.requireAuth, auth.requireRole('staff', 'superadmin')
       name: `${req.user.name}'s class`,
       hostUserId: req.user.id,
       endsAt,
+      subjectId: resolvedSubjectId,
     });
     getLiveRoom(room.id);
     scheduleTimeLimit(room.id, endsAt);
@@ -1279,6 +1291,23 @@ app.get('/api/rooms/:roomId/recordings', auth.requireAuth, auth.requireRole('sup
   }
 });
 
+// Present/absent breakdown for a room linked to a subject — only that
+// subject's teacher or a superadmin can see it, same access level as
+// the roster itself.
+app.get('/api/rooms/:roomId/attendance', auth.requireAuth, async (req, res) => {
+  try {
+    const room = await requireRoom(req.params.roomId, res);
+    if (!room) return;
+    if (req.user.role !== 'superadmin' && room.hostUserId !== req.user.id) {
+      return res.status(403).json({ error: 'Only this class\'s teacher can view attendance' });
+    }
+    res.json(await roomsRepo.getAttendance(req.params.roomId));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not load attendance' });
+  }
+});
+
 // Returns a short-lived presigned URL the browser can download directly
 // from R2 — the file goes straight to the user's device, never proxied
 // through this server.
@@ -1366,6 +1395,11 @@ io.on('connection', (socket) => {
 
       socket.join(roomId);
       live.participants.set(socket.id, { name: user.name, isTeacher, joinedAt: Date.now(), identity: null });
+      if (!isTeacher && room.subjectId) {
+        roomsRepo.recordAttendance(roomId, user.id).catch((err) => {
+          console.error('[attendance] failed to record', err);
+        });
+      }
 
       if (isTeacher) {
         live.teacherSocketId = socket.id;

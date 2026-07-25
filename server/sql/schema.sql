@@ -29,7 +29,16 @@ CREATE TABLE IF NOT EXISTS rooms (
   host_user_id TEXT NOT NULL REFERENCES users(id),
   created_at BIGINT NOT NULL,
   ends_at BIGINT,
-  ended BOOLEAN NOT NULL DEFAULT FALSE
+  ended BOOLEAN NOT NULL DEFAULT FALSE,
+  subject_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS room_attendance (
+  id TEXT PRIMARY KEY,
+  room_id TEXT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+  student_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  joined_at BIGINT NOT NULL,
+  UNIQUE (room_id, student_id)
 );
 
 CREATE TABLE IF NOT EXISTS room_files (
@@ -159,3 +168,7 @@ ALTER TABLE room_recordings ADD CONSTRAINT room_recordings_status_check
 ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS source_filename TEXT;
 ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS source_original_name TEXT;
 ALTER TABLE assignments ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'published';
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS subject_id TEXT;
+ALTER TABLE rooms DROP CONSTRAINT IF EXISTS rooms_subject_id_fkey;
+ALTER TABLE rooms ADD CONSTRAINT rooms_subject_id_fkey
+  FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE SET NULL;

@@ -9,6 +9,7 @@ import Chat from './Chat.jsx';
 import HandRaiseQueue from './HandRaiseQueue.jsx';
 import Whiteboard from './Whiteboard.jsx';
 import Roster from './Roster.jsx';
+import Attendance from './Attendance.jsx';
 import FileShare from './FileShare.jsx';
 import Captions from './Captions.jsx';
 import Recordings from './Recordings.jsx';
@@ -584,6 +585,7 @@ export default function Classroom() {
               </button>
             </div>
             {isTeacher && <Roster />}
+            {isTeacher && <Attendance roomId={roomId} />}
             {isTeacher ? <HandRaiseQueue /> : <HandRaiseButton />}
             <Whiteboard isTeacher={isTeacher} />
             <FileShare roomId={roomId} isTeacher={isTeacher} />

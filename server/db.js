@@ -65,7 +65,20 @@ export async function initSchema() {
       host_user_id TEXT NOT NULL REFERENCES users(id),
       created_at BIGINT NOT NULL,
       ends_at BIGINT,
-      ended BOOLEAN NOT NULL DEFAULT FALSE
+      ended BOOLEAN NOT NULL DEFAULT FALSE,
+      subject_id TEXT
+    );
+
+    -- Records the first time each student joins a given room. Compared
+    -- against the linked subject's roster to derive present/absent —
+    -- a room with no subject_id has no roster to compare against, so
+    -- attendance isn't offered for ad-hoc (non-subject) classes.
+    CREATE TABLE IF NOT EXISTS room_attendance (
+      id TEXT PRIMARY KEY,
+      room_id TEXT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+      student_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      joined_at BIGINT NOT NULL,
+      UNIQUE (room_id, student_id)
     );
 
     CREATE TABLE IF NOT EXISTS room_files (
@@ -222,6 +235,17 @@ export async function initSchema() {
     ALTER TABLE room_recordings DROP CONSTRAINT IF EXISTS room_recordings_status_check;
     ALTER TABLE room_recordings ADD CONSTRAINT room_recordings_status_check
       CHECK (status IN ('recording', 'processing', 'completed', 'failed'));
+  `);
+
+  // rooms.subject_id couldn't reference subjects(id) inline above since
+  // rooms is created earlier in this script than subjects — added here
+  // instead, now that both tables definitely exist. Re-run-safe via
+  // DROP IF EXISTS, same pattern as the CHECK constraint just above.
+  await pool.query(`
+    ALTER TABLE rooms ADD COLUMN IF NOT EXISTS subject_id TEXT;
+    ALTER TABLE rooms DROP CONSTRAINT IF EXISTS rooms_subject_id_fkey;
+    ALTER TABLE rooms ADD CONSTRAINT rooms_subject_id_fkey
+      FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE SET NULL;
   `);
 
   console.log('[db] Connected to Supabase and verified schema.');
