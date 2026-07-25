@@ -43,6 +43,18 @@ export async function getRoom(id) {
   return rows[0] ? toPublicRoom(rows[0]) : null;
 }
 
+// Every session ever started for a subject — this is what lets a
+// teacher get back to a past class to check its attendance or
+// recordings, since there's otherwise no way to rediscover a room's URL
+// once the live session itself has ended.
+export async function listRoomsForSubject(subjectId) {
+  const { rows } = await db.query(
+    'SELECT * FROM rooms WHERE subject_id = $1 ORDER BY created_at DESC',
+    [subjectId]
+  );
+  return rows.map(toPublicRoom);
+}
+
 export async function markRoomEnded(id) {
   await db.query('UPDATE rooms SET ended = true WHERE id = $1', [id]);
 }

@@ -759,6 +759,20 @@ app.get('/api/subjects/:subjectId/quizzes', auth.requireAuth, async (req, res) =
   }
 });
 
+// Every class session ever started for this subject — lets a teacher
+// find their way back to a past class to check attendance/recordings,
+// since there's otherwise no way to rediscover a room's URL once its
+// live session has ended. Teacher-only (like the roster), not visible
+// to students.
+app.get('/api/subjects/:subjectId/rooms', auth.requireAuth, async (req, res) => {
+  try {
+    await subjects.getOwnedSubject(req.params.subjectId, req.user);
+    res.json({ rooms: await roomsRepo.listRoomsForSubject(req.params.subjectId) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Write a quiz by hand instead of generating it — no AI involved.
 app.post(
   '/api/subjects/:subjectId/quizzes/manual',

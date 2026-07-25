@@ -23,6 +23,7 @@ import {
   publishAssignment,
   unpublishAssignment,
   deleteAssignment,
+  listSubjectRooms,
 } from '../lib/api.js';
 
 export default function Subjects() {
@@ -204,6 +205,7 @@ function SubjectManageCard({ subject, onChanged }) {
   const [uploadingAssignment, setUploadingAssignment] = useState(false);
   const [syllabusText, setSyllabusTextValue] = useState('');
   const [savingSyllabusText, setSavingSyllabusText] = useState(false);
+  const [roomList, setRoomList] = useState([]);
 
   useEffect(() => {
     if (open) {
@@ -212,9 +214,16 @@ function SubjectManageCard({ subject, onChanged }) {
         .catch((err) => setError(err.message));
       refreshQuizzes();
       refreshAssignments();
+      refreshRooms();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  function refreshRooms() {
+    listSubjectRooms(subject.id)
+      .then((data) => setRoomList(data.rooms))
+      .catch(() => {});
+  }
 
   function refreshQuizzes() {
     listQuizzes(subject.id)
@@ -631,6 +640,30 @@ function SubjectManageCard({ subject, onChanged }) {
                       Delete
                     </button>
                   </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="admin-section">
+            <p className="admin-section-label">Class history</p>
+            <p className="admin-section-hint muted" style={{ fontSize: '0.8rem' }}>
+              Every class started for this subject — open one to check attendance (and recordings,
+              for admins) after it's ended.
+            </p>
+            <ul className="roster-list">
+              {roomList.length === 0 && (
+                <p className="muted">No classes started for this subject yet.</p>
+              )}
+              {roomList.map((r) => (
+                <li key={r.id} className="file-row">
+                  <span>
+                    {new Date(r.createdAt).toLocaleString()}
+                    {!r.ended && <span className="muted"> · Live now</span>}
+                  </span>
+                  <Link to={`/room/${r.id}`}>
+                    <button className="ghost">Open</button>
+                  </Link>
                 </li>
               ))}
             </ul>

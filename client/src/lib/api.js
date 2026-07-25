@@ -25,6 +25,11 @@ export async function getAttendance(roomId) {
   return parseOrThrow(res);
 }
 
+export async function listSubjectRooms(subjectId) {
+  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/rooms`, { headers: authHeaders() });
+  return parseOrThrow(res);
+}
+
 // Named getLivekitToken (not getToken) to avoid clashing with the auth
 // helper's getToken(), which reads the login token from local storage.
 export async function getLivekitToken(roomId) {
