@@ -47,7 +47,6 @@ export default function Classroom() {
   const [micOn, setMicOn] = useState(false);
   const [camOn, setCamOn] = useState(false);
   const [facingMode, setFacingMode] = useState('user');
-  const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
   const [screenOn, setScreenOn] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
   const [copied, setCopied] = useState(false);
@@ -73,26 +72,13 @@ export default function Classroom() {
     if (status === 'error') setSidePanelOpen(true);
   }, [status]);
 
-  // Desktops typically have exactly one camera — no point offering a
-  // "flip camera" button there. Most phones/tablets have at least two.
-  // Browsers commonly under-report (or don't report at all) the true
-  // camera count until permission has actually been granted at least
-  // once, so this mount-time check is just a first guess — checkCameraCount
-  // gets called again right after the camera is actually turned on below,
-  // which is when the count becomes reliable.
-  async function checkCameraCount() {
-    try {
-      const devices = await navigator.mediaDevices?.enumerateDevices();
-      const cameraCount = (devices || []).filter((d) => d.kind === 'videoinput').length;
-      setHasMultipleCameras(cameraCount > 1);
-    } catch {
-      setHasMultipleCameras(false);
-    }
-  }
-
-  useEffect(() => {
-    checkCameraCount();
-  }, []);
+  // Desktops typically have exactly one camera, and tapping "Flip" there
+  // is harmless — restartTrack just falls back to the same camera if no
+  // other one matches the requested facingMode. Trying to pre-detect
+  // camera count via enumerateDevices() turned out to be unreliable
+  // across phone browsers (some under-report it even after permission
+  // is granted), so it's simpler and more robust to just always offer
+  // the button and let the browser's own constraint-matching handle it.
   const [handRaised, setHandRaised] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [selfRecordError, setSelfRecordError] = useState('');
@@ -300,7 +286,6 @@ export default function Classroom() {
     try {
       await room.localParticipant.setCameraEnabled(next, { facingMode });
       setCamOn(next);
-      if (next) checkCameraCount();
     } catch (err) {
       setMediaError(describeMediaError(err, 'camera'));
     }
@@ -515,7 +500,7 @@ export default function Classroom() {
                 <span className="ctrl-icon">{camOn ? '📷' : '🚫'}</span>
                 <span className="ctrl-label">{camOn ? 'Stop video' : 'Start video'}</span>
               </button>
-              {camOn && hasMultipleCameras && (
+              {camOn && (
                 <button onClick={flipCamera}>
                   <span className="ctrl-icon">🔄</span>
                   <span className="ctrl-label">Flip</span>
