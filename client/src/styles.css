@@ -235,6 +235,19 @@ button.ghost {
   overflow: hidden;
 }
 
+.stage:fullscreen {
+  border-radius: 0;
+  width: 100vw;
+  height: 100vh;
+}
+/* Fullscreen'd elements otherwise inherit the page background by
+   default in some browsers, which would show as a cream border around
+   the (dark) stage — force it dark here too. */
+.stage:fullscreen,
+.stage:-webkit-full-screen {
+  background: #10201c;
+}
+
 .stage-main {
   position: relative;
   flex: 1;

@@ -47,6 +47,31 @@ export default function Classroom() {
   const [micOn, setMicOn] = useState(false);
   const [camOn, setCamOn] = useState(false);
   const [facingMode, setFacingMode] = useState('user');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Keeps state in sync when fullscreen is exited some way other than
+  // our own button — the Escape key, browser chrome, etc.
+  useEffect(() => {
+    function onFullscreenChange() {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await stageRef.current?.requestFullscreen();
+      }
+    } catch {
+      // Some browsers (notably iOS Safari) don't support the Fullscreen
+      // API on arbitrary elements at all — nothing useful to do beyond
+      // not crashing; the button simply won't visibly do anything there.
+    }
+  }
   const [screenOn, setScreenOn] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
   const [copied, setCopied] = useState(false);
@@ -84,6 +109,7 @@ export default function Classroom() {
   const [selfRecordError, setSelfRecordError] = useState('');
 
   const audioContainerRef = useRef(null);
+  const stageRef = useRef(null);
   const roomRef = useRef(null);
   const selfRecorderRef = useRef(null);
   const selfRecordChunksRef = useRef([]);
@@ -476,7 +502,7 @@ export default function Classroom() {
       {status !== 'ended' && (
         <main className="classroom-grid">
           {(status === 'connecting' || status === 'connected') && (
-            <section className="stage">
+            <section className="stage" ref={stageRef}>
             <div className="stage-main">
               {tiles.length === 0 ? (
                 <p className="muted">Nothing is being shared yet.</p>
@@ -536,6 +562,10 @@ export default function Classroom() {
               <button className="panel-toggle-btn" onClick={() => setSidePanelOpen((o) => !o)}>
                 <span className="ctrl-icon">{sidePanelOpen ? '✕' : '🗂️'}</span>
                 <span className="ctrl-label">{sidePanelOpen ? 'Close' : 'Panels'}</span>
+              </button>
+              <button onClick={toggleFullscreen}>
+                <span className="ctrl-icon">{isFullscreen ? '🗗' : '⛶'}</span>
+                <span className="ctrl-label">{isFullscreen ? 'Minimize' : 'Fullscreen'}</span>
               </button>
               <button onClick={() => navigate('/')}>
                 <span className="ctrl-icon">🚪</span>
