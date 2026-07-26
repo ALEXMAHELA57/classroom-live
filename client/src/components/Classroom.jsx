@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Room, RoomEvent, Track } from 'livekit-client';
+import { Room, RoomEvent, Track, VideoPresets } from 'livekit-client';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { getLivekitToken, API_BASE, uploadSelfRecording } from '../lib/api.js';
 import { getToken as getLoginToken } from '../lib/auth.js';
@@ -311,7 +311,16 @@ export default function Classroom() {
     if (!room) return;
     const next = !camOn;
     try {
-      await room.localParticipant.setCameraEnabled(next, { facingMode });
+      // A moderate default bitrate/resolution reads fine for faces but
+      // gets noticeably soft on small text (e.g. pointing the camera at
+      // a whiteboard or page from a meter away) — request 1080p capture
+      // and matching publish bitrate for clearer detail. This does use
+      // more bandwidth for everyone watching than the previous default.
+      await room.localParticipant.setCameraEnabled(
+        next,
+        { facingMode, resolution: VideoPresets.h1080.resolution },
+        { videoEncoding: VideoPresets.h1080.encoding }
+      );
       setCamOn(next);
     } catch (err) {
       setMediaError(describeMediaError(err, 'camera'));
@@ -330,7 +339,7 @@ export default function Classroom() {
       const publication = room.localParticipant.getTrackPublication(Track.Source.Camera);
       const track = publication?.videoTrack;
       if (!track) return;
-      await track.restartTrack({ facingMode: nextFacing });
+      await track.restartTrack({ facingMode: nextFacing, resolution: VideoPresets.h1080.resolution });
       setFacingMode(nextFacing);
     } catch (err) {
       setMediaError(describeMediaError(err, 'camera'));
