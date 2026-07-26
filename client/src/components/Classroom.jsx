@@ -38,17 +38,21 @@ function describeMediaError(err, device) {
 const SCREEN_SHARE_SUPPORTED =
   typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia;
 
-// LiveKit's own 4K preset (VideoPresets.h2160) caps at 8 Mbps / 30fps —
-// a sensible default for normal video calls, but suboptimal for reading
-// mostly-static content like a whiteboard: 30fps of motion smoothness is
-// wasted on something that barely moves, while every one of those frames
-// competes for a share of the same 8 Mbps. Trading framerate down (15fps)
-// for bitrate up (12 Mbps) puts far more data behind each frame that
-// actually gets sent — sharper detail on stationary text, at the cost of
-// slightly less smooth motion if the camera IS panned around. This also
-// demands more sustained upload bandwidth than the previous setting; on
-// a weak connection LiveKit will adapt the delivered quality down
-// automatically, but the source capture itself stays this demanding.
+// Normal mode — smooth, sustainable for typical mobile upload speeds and
+// affordable for most devices to encode in real time. This is the
+// default; most of the time people are looking at faces, not text.
+const NORMAL_ENCODING = VideoPresets.h1080.encoding; // 3 Mbps, 30fps
+const NORMAL_RESOLUTION = VideoPresets.h1080.resolution;
+
+// "High clarity" — opt-in only (see the toggle button below), for when
+// someone is deliberately pointing the camera at a whiteboard or page.
+// 12 Mbps at 4K/15fps demands far more sustained upload bandwidth and
+// encoding power than most connections/devices can sustain continuously
+// — running it as the permanent default caused real stutter/lag, which
+// is why this is now a manual choice instead of always-on. Trading
+// framerate down (15fps) for bitrate up puts far more data behind each
+// frame that's actually sent — sharper detail on stationary text, at
+// the cost of smoothness if the camera is panned around while this is on.
 const HIGH_CLARITY_ENCODING = { maxBitrate: 12_000_000, maxFramerate: 15 };
 const HIGH_CLARITY_RESOLUTION = VideoPresets.h2160.resolution;
 
@@ -66,6 +70,8 @@ export default function Classroom() {
   const [zoomCaps, setZoomCaps] = useState(null); // { min, max, step } when the active camera supports it
   const [zoomLevel, setZoomLevel] = useState(1);
   const [audioBlocked, setAudioBlocked] = useState(false);
+  const [highClarity, setHighClarity] = useState(false);
+  const [switchingClarity, setSwitchingClarity] = useState(false);
 
   // Keeps state in sync when fullscreen is exited some way other than
   // our own button — the Escape key, browser chrome, etc.
@@ -370,18 +376,48 @@ export default function Classroom() {
     if (!room) return;
     const next = !camOn;
     try {
-      // See HIGH_CLARITY_ENCODING above for why this trades framerate
-      // for bitrate rather than just using LiveKit's stock 4K preset.
+      const resolution = highClarity ? HIGH_CLARITY_RESOLUTION : NORMAL_RESOLUTION;
+      const encoding = highClarity ? HIGH_CLARITY_ENCODING : NORMAL_ENCODING;
       const publication = await room.localParticipant.setCameraEnabled(
         next,
-        { facingMode, resolution: HIGH_CLARITY_RESOLUTION },
-        { videoEncoding: HIGH_CLARITY_ENCODING }
+        { facingMode, resolution },
+        { videoEncoding: encoding }
       );
       setCamOn(next);
       if (next) checkZoomCapability(publication?.videoTrack);
       else setZoomCaps(null);
     } catch (err) {
       setMediaError(describeMediaError(err, 'camera'));
+    }
+  }
+
+  // Switches between the smooth default and the opt-in "high clarity"
+  // mode. Changing published bitrate on a live track isn't something
+  // restartTrack can do (it only affects capture-side constraints like
+  // resolution/facingMode) — so this briefly toggles the camera off and
+  // back on with the new settings, which does interrupt the video for a
+  // moment for anyone watching.
+  async function toggleHighClarity() {
+    const room = roomRef.current;
+    if (!room) return;
+    const nextHighClarity = !highClarity;
+    setHighClarity(nextHighClarity);
+    if (!camOn) return; // takes effect next time the camera turns on
+    setSwitchingClarity(true);
+    try {
+      await room.localParticipant.setCameraEnabled(false);
+      const resolution = nextHighClarity ? HIGH_CLARITY_RESOLUTION : NORMAL_RESOLUTION;
+      const encoding = nextHighClarity ? HIGH_CLARITY_ENCODING : NORMAL_ENCODING;
+      const publication = await room.localParticipant.setCameraEnabled(
+        true,
+        { facingMode, resolution },
+        { videoEncoding: encoding }
+      );
+      checkZoomCapability(publication?.videoTrack);
+    } catch (err) {
+      setMediaError(describeMediaError(err, 'camera'));
+    } finally {
+      setSwitchingClarity(false);
     }
   }
 
@@ -397,7 +433,10 @@ export default function Classroom() {
       const publication = room.localParticipant.getTrackPublication(Track.Source.Camera);
       const track = publication?.videoTrack;
       if (!track) return;
-      await track.restartTrack({ facingMode: nextFacing, resolution: HIGH_CLARITY_RESOLUTION });
+      await track.restartTrack({
+        facingMode: nextFacing,
+        resolution: highClarity ? HIGH_CLARITY_RESOLUTION : NORMAL_RESOLUTION,
+      });
       setFacingMode(nextFacing);
       checkZoomCapability(track);
     } catch (err) {
@@ -629,6 +668,12 @@ export default function Classroom() {
                   <span className="ctrl-label">Flip</span>
                 </button>
               )}
+              <button onClick={toggleHighClarity} disabled={switchingClarity}>
+                <span className="ctrl-icon">{highClarity ? '🔎' : '🔍'}</span>
+                <span className="ctrl-label">
+                  {switchingClarity ? 'Switching…' : highClarity ? 'HD on' : 'HD off'}
+                </span>
+              </button>
               {SCREEN_SHARE_SUPPORTED && (
                 <button onClick={toggleScreenShare}>
                   <span className="ctrl-icon">🖥️</span>
