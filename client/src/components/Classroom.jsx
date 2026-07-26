@@ -49,6 +49,8 @@ export default function Classroom() {
   const [camOn, setCamOn] = useState(false);
   const [facingMode, setFacingMode] = useState('user');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [zoomCaps, setZoomCaps] = useState(null); // { min, max, step } when the active camera supports it
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   // Keeps state in sync when fullscreen is exited some way other than
   // our own button — the Escape key, browser chrome, etc.
@@ -306,6 +308,37 @@ export default function Classroom() {
       setMediaError(describeMediaError(err, 'microphone'));
     }
   }
+  // Checks whether the currently-active camera exposes a zoom control —
+  // this is a real hardware/browser capability (mainly Android Chrome
+  // with supporting camera hardware; desktop webcams and iOS Safari
+  // essentially never support it), separate from stream resolution.
+  // Higher resolution adds detail/sharpness; only zoom makes a distant
+  // object actually take up more of the frame.
+  function checkZoomCapability(track) {
+    const mediaTrack = track?.mediaStreamTrack;
+    const caps = mediaTrack?.getCapabilities?.();
+    if (caps?.zoom) {
+      setZoomCaps({ min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 });
+      const settings = mediaTrack.getSettings?.();
+      setZoomLevel(settings?.zoom || caps.zoom.min);
+    } else {
+      setZoomCaps(null);
+    }
+  }
+
+  async function setZoom(value) {
+    const room = roomRef.current;
+    const publication = room?.localParticipant.getTrackPublication(Track.Source.Camera);
+    const mediaTrack = publication?.videoTrack?.mediaStreamTrack;
+    if (!mediaTrack) return;
+    try {
+      await mediaTrack.applyConstraints({ advanced: [{ zoom: value }] });
+      setZoomLevel(value);
+    } catch (err) {
+      setMediaError(describeMediaError(err, 'camera'));
+    }
+  }
+
   async function toggleCam() {
     const room = roomRef.current;
     if (!room) return;
@@ -313,15 +346,19 @@ export default function Classroom() {
     try {
       // A moderate default bitrate/resolution reads fine for faces but
       // gets noticeably soft on small text (e.g. pointing the camera at
-      // a whiteboard or page from a meter away) — request 1080p capture
-      // and matching publish bitrate for clearer detail. This does use
-      // more bandwidth for everyone watching than the previous default.
-      await room.localParticipant.setCameraEnabled(
+      // a whiteboard or page from a meter away) — request the highest
+      // resolution/bitrate LiveKit offers (4K); browsers automatically
+      // fall back to whatever the actual camera hardware supports, so
+      // this is a ceiling, not a hard requirement. This does use more
+      // bandwidth for everyone watching than a lower default would.
+      const publication = await room.localParticipant.setCameraEnabled(
         next,
-        { facingMode, resolution: VideoPresets.h1080.resolution },
-        { videoEncoding: VideoPresets.h1080.encoding }
+        { facingMode, resolution: VideoPresets.h2160.resolution },
+        { videoEncoding: VideoPresets.h2160.encoding }
       );
       setCamOn(next);
+      if (next) checkZoomCapability(publication?.videoTrack);
+      else setZoomCaps(null);
     } catch (err) {
       setMediaError(describeMediaError(err, 'camera'));
     }
@@ -339,8 +376,9 @@ export default function Classroom() {
       const publication = room.localParticipant.getTrackPublication(Track.Source.Camera);
       const track = publication?.videoTrack;
       if (!track) return;
-      await track.restartTrack({ facingMode: nextFacing, resolution: VideoPresets.h1080.resolution });
+      await track.restartTrack({ facingMode: nextFacing, resolution: VideoPresets.h2160.resolution });
       setFacingMode(nextFacing);
+      checkZoomCapability(track);
     } catch (err) {
       setMediaError(describeMediaError(err, 'camera'));
     }
@@ -526,6 +564,19 @@ export default function Classroom() {
               <div ref={audioContainerRef} style={{ display: 'none' }} />
               <Captions myName={user.name} />
               {selfRecordError && <p className="caption-error" style={{ top: 44 }}>{selfRecordError}</p>}
+              {zoomCaps && (
+                <div className="zoom-control">
+                  <span className="zoom-icon">🔍</span>
+                  <input
+                    type="range"
+                    min={zoomCaps.min}
+                    max={zoomCaps.max}
+                    step={zoomCaps.step}
+                    value={zoomLevel}
+                    onChange={(e) => setZoom(Number(e.target.value))}
+                  />
+                </div>
+              )}
             </div>
             <div className="stage-controls">
               <button onClick={toggleMic}>

@@ -314,6 +314,24 @@ button.ghost {
   gap: 6px;
   z-index: 2;
 }
+
+.zoom-control {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 6px 10px;
+  border-radius: 999px;
+  z-index: 2;
+}
+.zoom-icon { font-size: 0.9rem; }
+.zoom-control input[type='range'] {
+  width: 110px;
+  accent-color: var(--chalk-yellow);
+}
 .caption-controls button {
   font-size: 0.75rem;
   padding: 5px 9px;
