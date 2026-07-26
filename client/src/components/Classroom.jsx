@@ -38,23 +38,36 @@ function describeMediaError(err, device) {
 const SCREEN_SHARE_SUPPORTED =
   typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia;
 
-// Normal mode — smooth, sustainable for typical mobile upload speeds and
-// affordable for most devices to encode in real time. This is the
-// default; most of the time people are looking at faces, not text.
-const NORMAL_ENCODING = VideoPresets.h1080.encoding; // 3 Mbps, 30fps
-const NORMAL_RESOLUTION = VideoPresets.h1080.resolution;
-
-// "High clarity" — opt-in only (see the toggle button below), for when
-// someone is deliberately pointing the camera at a whiteboard or page.
-// 12 Mbps at 4K/15fps demands far more sustained upload bandwidth and
-// encoding power than most connections/devices can sustain continuously
-// — running it as the permanent default caused real stutter/lag, which
-// is why this is now a manual choice instead of always-on. Trading
-// framerate down (15fps) for bitrate up puts far more data behind each
-// frame that's actually sent — sharper detail on stationary text, at
-// the cost of smoothness if the camera is panned around while this is on.
-const HIGH_CLARITY_ENCODING = { maxBitrate: 12_000_000, maxFramerate: 15 };
-const HIGH_CLARITY_RESOLUTION = VideoPresets.h2160.resolution;
+// Three quality tiers a teacher/admin can pick between, each genuinely
+// smooth to run continuously at its own bitrate — the earlier problem
+// wasn't "high clarity is bad," it was forcing everyone onto the most
+// demanding tier permanently regardless of their connection/device.
+// Picking a lower tier isn't a fallback or a compromise; it's a real
+// choice for a weak connection or an older device.
+const VIDEO_QUALITY_PRESETS = {
+  low: {
+    label: 'Data saver',
+    hint: 'Best for weak connections — smooth, lower detail',
+    resolution: VideoPresets.h360.resolution,
+    encoding: VideoPresets.h360.encoding, // ~450 Kbps, 20fps
+  },
+  standard: {
+    label: 'Standard',
+    hint: 'Good default for most classes',
+    resolution: VideoPresets.h1080.resolution,
+    encoding: VideoPresets.h1080.encoding, // ~3 Mbps, 30fps
+  },
+  high: {
+    label: 'High clarity',
+    hint: 'For reading a whiteboard/page — needs a strong connection',
+    resolution: VideoPresets.h2160.resolution,
+    // Trading framerate down (15fps) for bitrate up puts far more data
+    // behind each frame that's actually sent — sharper detail on
+    // stationary text, at the cost of smoothness if the camera is
+    // panned around while this tier is selected.
+    encoding: { maxBitrate: 12_000_000, maxFramerate: 15 },
+  },
+};
 
 export default function Classroom() {
   const { roomId } = useParams();
@@ -70,8 +83,8 @@ export default function Classroom() {
   const [zoomCaps, setZoomCaps] = useState(null); // { min, max, step } when the active camera supports it
   const [zoomLevel, setZoomLevel] = useState(1);
   const [audioBlocked, setAudioBlocked] = useState(false);
-  const [highClarity, setHighClarity] = useState(false);
-  const [switchingClarity, setSwitchingClarity] = useState(false);
+  const [videoQuality, setVideoQuality] = useState('standard');
+  const [switchingQuality, setSwitchingQuality] = useState(false);
 
   // Keeps state in sync when fullscreen is exited some way other than
   // our own button — the Escape key, browser chrome, etc.
@@ -376,12 +389,11 @@ export default function Classroom() {
     if (!room) return;
     const next = !camOn;
     try {
-      const resolution = highClarity ? HIGH_CLARITY_RESOLUTION : NORMAL_RESOLUTION;
-      const encoding = highClarity ? HIGH_CLARITY_ENCODING : NORMAL_ENCODING;
+      const preset = VIDEO_QUALITY_PRESETS[videoQuality];
       const publication = await room.localParticipant.setCameraEnabled(
         next,
-        { facingMode, resolution },
-        { videoEncoding: encoding }
+        { facingMode, resolution: preset.resolution },
+        { videoEncoding: preset.encoding }
       );
       setCamOn(next);
       if (next) checkZoomCapability(publication?.videoTrack);
@@ -391,33 +403,31 @@ export default function Classroom() {
     }
   }
 
-  // Switches between the smooth default and the opt-in "high clarity"
-  // mode. Changing published bitrate on a live track isn't something
-  // restartTrack can do (it only affects capture-side constraints like
-  // resolution/facingMode) — so this briefly toggles the camera off and
-  // back on with the new settings, which does interrupt the video for a
-  // moment for anyone watching.
-  async function toggleHighClarity() {
+  // Switches between the three quality tiers. Changing published
+  // bitrate on a live track isn't something restartTrack can do (it
+  // only affects capture-side constraints like resolution/facingMode)
+  // — so this briefly toggles the camera off and back on with the new
+  // settings, which does interrupt the video for a moment for anyone
+  // watching.
+  async function changeVideoQuality(nextQuality) {
     const room = roomRef.current;
-    if (!room) return;
-    const nextHighClarity = !highClarity;
-    setHighClarity(nextHighClarity);
+    if (!room || nextQuality === videoQuality) return;
+    setVideoQuality(nextQuality);
     if (!camOn) return; // takes effect next time the camera turns on
-    setSwitchingClarity(true);
+    setSwitchingQuality(true);
     try {
       await room.localParticipant.setCameraEnabled(false);
-      const resolution = nextHighClarity ? HIGH_CLARITY_RESOLUTION : NORMAL_RESOLUTION;
-      const encoding = nextHighClarity ? HIGH_CLARITY_ENCODING : NORMAL_ENCODING;
+      const preset = VIDEO_QUALITY_PRESETS[nextQuality];
       const publication = await room.localParticipant.setCameraEnabled(
         true,
-        { facingMode, resolution },
-        { videoEncoding: encoding }
+        { facingMode, resolution: preset.resolution },
+        { videoEncoding: preset.encoding }
       );
       checkZoomCapability(publication?.videoTrack);
     } catch (err) {
       setMediaError(describeMediaError(err, 'camera'));
     } finally {
-      setSwitchingClarity(false);
+      setSwitchingQuality(false);
     }
   }
 
@@ -435,7 +445,7 @@ export default function Classroom() {
       if (!track) return;
       await track.restartTrack({
         facingMode: nextFacing,
-        resolution: highClarity ? HIGH_CLARITY_RESOLUTION : NORMAL_RESOLUTION,
+        resolution: VIDEO_QUALITY_PRESETS[videoQuality].resolution,
       });
       setFacingMode(nextFacing);
       checkZoomCapability(track);
@@ -652,6 +662,23 @@ export default function Classroom() {
                   />
                 </div>
               )}
+              {camOn && user.role !== 'student' && (
+                <div className="quality-control" title={VIDEO_QUALITY_PRESETS[videoQuality].hint}>
+                  <span className="zoom-icon">📶</span>
+                  <select
+                    value={videoQuality}
+                    disabled={switchingQuality}
+                    onChange={(e) => changeVideoQuality(e.target.value)}
+                  >
+                    {Object.entries(VIDEO_QUALITY_PRESETS).map(([key, preset]) => (
+                      <option key={key} value={key}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                  {switchingQuality && <span className="muted" style={{ fontSize: '0.7rem' }}>Switching…</span>}
+                </div>
+              )}
             </div>
             <div className="stage-controls">
               <button onClick={toggleMic}>
@@ -668,12 +695,6 @@ export default function Classroom() {
                   <span className="ctrl-label">Flip</span>
                 </button>
               )}
-              <button onClick={toggleHighClarity} disabled={switchingClarity}>
-                <span className="ctrl-icon">{highClarity ? '🔎' : '🔍'}</span>
-                <span className="ctrl-label">
-                  {switchingClarity ? 'Switching…' : highClarity ? 'HD on' : 'HD off'}
-                </span>
-              </button>
               {SCREEN_SHARE_SUPPORTED && (
                 <button onClick={toggleScreenShare}>
                   <span className="ctrl-icon">🖥️</span>
