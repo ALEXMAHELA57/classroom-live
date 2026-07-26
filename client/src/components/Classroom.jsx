@@ -38,6 +38,20 @@ function describeMediaError(err, device) {
 const SCREEN_SHARE_SUPPORTED =
   typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia;
 
+// LiveKit's own 4K preset (VideoPresets.h2160) caps at 8 Mbps / 30fps —
+// a sensible default for normal video calls, but suboptimal for reading
+// mostly-static content like a whiteboard: 30fps of motion smoothness is
+// wasted on something that barely moves, while every one of those frames
+// competes for a share of the same 8 Mbps. Trading framerate down (15fps)
+// for bitrate up (12 Mbps) puts far more data behind each frame that
+// actually gets sent — sharper detail on stationary text, at the cost of
+// slightly less smooth motion if the camera IS panned around. This also
+// demands more sustained upload bandwidth than the previous setting; on
+// a weak connection LiveKit will adapt the delivered quality down
+// automatically, but the source capture itself stays this demanding.
+const HIGH_CLARITY_ENCODING = { maxBitrate: 12_000_000, maxFramerate: 15 };
+const HIGH_CLARITY_RESOLUTION = VideoPresets.h2160.resolution;
+
 export default function Classroom() {
   const { roomId } = useParams();
   const navigate = useNavigate();
@@ -51,6 +65,7 @@ export default function Classroom() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoomCaps, setZoomCaps] = useState(null); // { min, max, step } when the active camera supports it
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [audioBlocked, setAudioBlocked] = useState(false);
 
   // Keeps state in sync when fullscreen is exited some way other than
   // our own button — the Escape key, browser chrome, etc.
@@ -160,6 +175,16 @@ export default function Classroom() {
         track.detach().forEach((el) => el.remove());
       });
 
+      // Safari (and occasionally other browsers) can block audio
+      // autoplay even after mic/speaker permissions are granted and
+      // everything else about the connection works — the remote
+      // participant genuinely is publishing audio, it's just that this
+      // browser refused to let it play without a direct user gesture.
+      // startAudio() (called from a click, below) resolves it.
+      r.on(RoomEvent.AudioPlaybackStatusChanged, () => {
+        setAudioBlocked(!r.canPlaybackAudio);
+      });
+
       r.on(RoomEvent.LocalTrackPublished, (publication) => {
         if (publication.track?.kind === Track.Kind.Video) {
           upsertTile({
@@ -221,6 +246,7 @@ export default function Classroom() {
         const room = await connectWithRelayFallback(livekitUrl, token);
         if (cancelled) return;
         setStatus('connected');
+        setAudioBlocked(!room.canPlaybackAudio);
         socket.emit('register-identity', { identity: room.localParticipant.identity });
       } catch (err) {
         if (!cancelled) {
@@ -344,17 +370,12 @@ export default function Classroom() {
     if (!room) return;
     const next = !camOn;
     try {
-      // A moderate default bitrate/resolution reads fine for faces but
-      // gets noticeably soft on small text (e.g. pointing the camera at
-      // a whiteboard or page from a meter away) — request the highest
-      // resolution/bitrate LiveKit offers (4K); browsers automatically
-      // fall back to whatever the actual camera hardware supports, so
-      // this is a ceiling, not a hard requirement. This does use more
-      // bandwidth for everyone watching than a lower default would.
+      // See HIGH_CLARITY_ENCODING above for why this trades framerate
+      // for bitrate rather than just using LiveKit's stock 4K preset.
       const publication = await room.localParticipant.setCameraEnabled(
         next,
-        { facingMode, resolution: VideoPresets.h2160.resolution },
-        { videoEncoding: VideoPresets.h2160.encoding }
+        { facingMode, resolution: HIGH_CLARITY_RESOLUTION },
+        { videoEncoding: HIGH_CLARITY_ENCODING }
       );
       setCamOn(next);
       if (next) checkZoomCapability(publication?.videoTrack);
@@ -376,7 +397,7 @@ export default function Classroom() {
       const publication = room.localParticipant.getTrackPublication(Track.Source.Camera);
       const track = publication?.videoTrack;
       if (!track) return;
-      await track.restartTrack({ facingMode: nextFacing, resolution: VideoPresets.h2160.resolution });
+      await track.restartTrack({ facingMode: nextFacing, resolution: HIGH_CLARITY_RESOLUTION });
       setFacingMode(nextFacing);
       checkZoomCapability(track);
     } catch (err) {
@@ -476,6 +497,16 @@ export default function Classroom() {
     getSocket().emit('session:end');
   }
 
+  async function enableAudio() {
+    try {
+      await roomRef.current?.startAudio();
+      setAudioBlocked(!roomRef.current?.canPlaybackAudio);
+    } catch {
+      // If it's still blocked after trying, the banner just stays up —
+      // nothing further to do without another user gesture.
+    }
+  }
+
   function raiseHandQuick() {
     getSocket().emit('hand:raise', { question: '' });
   }
@@ -563,6 +594,11 @@ export default function Classroom() {
               )}
               <div ref={audioContainerRef} style={{ display: 'none' }} />
               <Captions myName={user.name} />
+              {audioBlocked && (
+                <button className="audio-unlock-banner" onClick={enableAudio}>
+                  🔇 Tap to enable audio — your browser blocked it from playing automatically
+                </button>
+              )}
               {selfRecordError && <p className="caption-error" style={{ top: 44 }}>{selfRecordError}</p>}
               {zoomCaps && (
                 <div className="zoom-control">

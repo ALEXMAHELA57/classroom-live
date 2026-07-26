@@ -332,6 +332,23 @@ button.ghost {
   width: 110px;
   accent-color: var(--chalk-yellow);
 }
+
+.audio-unlock-banner {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  background: var(--chalk-yellow);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: none;
+  max-width: 90%;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
 .caption-controls button {
   font-size: 0.75rem;
   padding: 5px 9px;
