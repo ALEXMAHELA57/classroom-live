@@ -376,15 +376,38 @@ export default function Classroom() {
   function drawZoomFrame() {
     const video = hiddenVideoRef.current;
     const canvas = zoomCanvasRef.current;
-    if (video && canvas && video.readyState >= 2) {
+    if (video && canvas && video.readyState >= 2 && video.videoWidth && video.videoHeight) {
       const ctx = canvas.getContext('2d');
       const zoom = zoomLevelRef.current;
       const vw = video.videoWidth;
       const vh = video.videoHeight;
-      const cropW = vw / zoom;
-      const cropH = vh / zoom;
-      const sx = (vw - cropW) / 2;
-      const sy = (vh - cropH) / 2;
+
+      // Cameras frequently don't actually deliver the aspect ratio we
+      // asked for (getUserMedia's width/height are "ideal" hints, not
+      // guarantees — phones in particular often default to 4:3 rather
+      // than 16:9). Naively cropping by the same factor on both axes
+      // and stretching straight onto a fixed-aspect canvas would
+      // silently distort the image (visible as lopsided/horizontal-only
+      // enlargement). Fix: first crop the source down to whatever
+      // sub-region actually matches the canvas's own aspect ratio (a
+      // standard "cover" crop), THEN apply the zoom as an additional
+      // proportional crop on top of that already-correct region.
+      const targetAspect = canvas.width / canvas.height;
+      const sourceAspect = vw / vh;
+      let baseW = vw;
+      let baseH = vh;
+      if (sourceAspect > targetAspect) {
+        baseW = vh * targetAspect; // source is relatively wider — trim the sides
+      } else {
+        baseH = vw / targetAspect; // source is relatively taller — trim top/bottom
+      }
+      const baseX = (vw - baseW) / 2;
+      const baseY = (vh - baseH) / 2;
+
+      const cropW = baseW / zoom;
+      const cropH = baseH / zoom;
+      const sx = baseX + (baseW - cropW) / 2;
+      const sy = baseY + (baseH - cropH) / 2;
       ctx.drawImage(video, sx, sy, cropW, cropH, 0, 0, canvas.width, canvas.height);
     }
     zoomAnimRef.current = requestAnimationFrame(drawZoomFrame);
