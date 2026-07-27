@@ -432,8 +432,24 @@ app.post('/api/token', auth.requireAuth, async (req, res) => {
 
     const isTeacher = req.user.id === room.hostUserId;
 
+    // LiveKit enforces one live connection per identity, full stop —
+    // that's the protocol's own behavior, not something our server
+    // configures. A student staying to one device is intentional (ties
+    // into attendance integrity), but staff/superadmin legitimately
+    // need to be signed in from a laptop and a phone simultaneously —
+    // giving them a fresh identity suffix per session is what actually
+    // lets LiveKit treat those as distinct participants instead of one
+    // replacing the other. Each new token request (i.e. each fresh page
+    // load) gets its own suffix; a single tab's own reconnects reuse the
+    // same token/identity throughout its session, so this doesn't cause
+    // duplicate-participant flicker on normal network hiccups.
+    const identity =
+      req.user.role === 'staff' || req.user.role === 'superadmin'
+        ? `user-${req.user.id}-${nanoid(6)}`
+        : `user-${req.user.id}`;
+
     const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
-      identity: `user-${req.user.id}`,
+      identity,
       name: req.user.name,
     });
     at.addGrant({
@@ -1386,14 +1402,17 @@ io.on('connection', (socket) => {
       // Single-device enforcement: if this account already has an active
       // connection in this room (a different device/tab), disconnect it
       // in favor of this new one. This mirrors what LiveKit's media layer
-      // already does automatically — its identity is `user-${user.id}`,
-      // the same across devices for one account, so LiveKit itself drops
-      // the older media connection when a new one connects with that
-      // identity. This just keeps the chat/roster/hand-raise layer
-      // consistent with that, instead of leaving a stale duplicate
-      // connection sitting in the roster.
+      // already does automatically for students — its identity is
+      // `user-${user.id}`, the same across devices for one account, so
+      // LiveKit itself drops the older media connection when a new one
+      // connects with that identity. Staff/superadmin get a per-session
+      // identity suffix instead (see /api/token above) specifically so
+      // they CAN be on multiple devices at once — so this kick logic is
+      // skipped for them too, to keep this signaling layer consistent
+      // with what LiveKit itself is actually doing.
+      const isPrivilegedRole = user.role === 'staff' || user.role === 'superadmin';
       const existingSocketId = live.userIdToSocket.get(user.id);
-      if (existingSocketId && existingSocketId !== socket.id) {
+      if (!isPrivilegedRole && existingSocketId && existingSocketId !== socket.id) {
         const existingSocket = io.sockets.sockets.get(existingSocketId);
         if (existingSocket) {
           existingSocket.emit('device:superseded');
