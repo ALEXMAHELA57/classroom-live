@@ -80,8 +80,7 @@ export default function Classroom() {
   const [camOn, setCamOn] = useState(false);
   const [facingMode, setFacingMode] = useState('user');
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [zoomCaps, setZoomCaps] = useState(null); // { min, max, step } when the active camera supports it
-  const [zoomLevel, setZoomLevel] = useState(1);
+  const [digitalZoom, setDigitalZoom] = useState(1);
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [videoQuality, setVideoQuality] = useState('standard');
   const [switchingQuality, setSwitchingQuality] = useState(false);
@@ -126,6 +125,10 @@ export default function Classroom() {
   const [selfRecordUploading, setSelfRecordUploading] = useState(false);
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
 
+  useEffect(() => {
+    zoomLevelRef.current = digitalZoom;
+  }, [digitalZoom]);
+
   // When there's no live session to connect to, the stage (and its
   // "Panels" toggle button) don't render at all — without this, mobile
   // users would have no way to open the drawer that holds recordings and
@@ -149,6 +152,16 @@ export default function Classroom() {
   const stageRef = useRef(null);
   const roomRef = useRef(null);
   const selfRecorderRef = useRef(null);
+  // Digital-zoom pipeline: raw camera → hidden <video> → <canvas> crop →
+  // published as the actual camera track. Kept as refs (not state) since
+  // they're mutable engine internals the draw loop reads every frame,
+  // not values that should trigger re-renders.
+  const rawStreamRef = useRef(null);
+  const hiddenVideoRef = useRef(null);
+  const zoomCanvasRef = useRef(null);
+  const zoomAnimRef = useRef(null);
+  const zoomLevelRef = useRef(1);
+  const publishedCanvasTrackRef = useRef(null);
   const selfRecordChunksRef = useRef([]);
 
   function upsertTile(tile) {
@@ -326,6 +339,7 @@ export default function Classroom() {
       socket.off('recording:status', onRecordingStatus);
       socket.off('hand:submitted', onHandSubmitted);
       if (selfRecorderRef.current?.state === 'recording') selfRecorderRef.current.stop();
+      stopRawCapture();
       roomRef.current?.disconnect();
       socket.disconnect();
     };
@@ -353,77 +367,124 @@ export default function Classroom() {
       setMediaError(describeMediaError(err, 'microphone'));
     }
   }
-  // Checks whether the currently-active camera exposes a zoom control —
-  // this is a real hardware/browser capability (mainly Android Chrome
-  // with supporting camera hardware; desktop webcams and iOS Safari
-  // essentially never support it), separate from stream resolution.
-  // Higher resolution adds detail/sharpness; only zoom makes a distant
-  // object actually take up more of the frame.
-  function checkZoomCapability(track) {
-    const mediaTrack = track?.mediaStreamTrack;
-    const caps = mediaTrack?.getCapabilities?.();
-    if (caps?.zoom) {
-      setZoomCaps({ min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 });
-      const settings = mediaTrack.getSettings?.();
-      setZoomLevel(settings?.zoom || caps.zoom.min);
-    } else {
-      setZoomCaps(null);
+
+  // Draws the current frame from the hidden raw-camera <video>, cropped
+  // to whatever the current zoom level dictates, onto the canvas that
+  // actually gets published. Runs every frame via requestAnimationFrame
+  // — reads zoomLevelRef (not state) so changing zoom is instant and
+  // never waits on a re-render or track republish.
+  function drawZoomFrame() {
+    const video = hiddenVideoRef.current;
+    const canvas = zoomCanvasRef.current;
+    if (video && canvas && video.readyState >= 2) {
+      const ctx = canvas.getContext('2d');
+      const zoom = zoomLevelRef.current;
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      const cropW = vw / zoom;
+      const cropH = vh / zoom;
+      const sx = (vw - cropW) / 2;
+      const sy = (vh - cropH) / 2;
+      ctx.drawImage(video, sx, sy, cropW, cropH, 0, 0, canvas.width, canvas.height);
     }
+    zoomAnimRef.current = requestAnimationFrame(drawZoomFrame);
   }
 
-  async function setZoom(value) {
-    const room = roomRef.current;
-    const publication = room?.localParticipant.getTrackPublication(Track.Source.Camera);
-    const mediaTrack = publication?.videoTrack?.mediaStreamTrack;
-    if (!mediaTrack) return;
-    try {
-      await mediaTrack.applyConstraints({ advanced: [{ zoom: value }] });
-      setZoomLevel(value);
-    } catch (err) {
-      setMediaError(describeMediaError(err, 'camera'));
+  function stopRawCapture() {
+    if (zoomAnimRef.current) {
+      cancelAnimationFrame(zoomAnimRef.current);
+      zoomAnimRef.current = null;
     }
+    rawStreamRef.current?.getTracks().forEach((t) => t.stop());
+    rawStreamRef.current = null;
+  }
+
+  // (Re)starts the whole camera pipeline: grabs a raw camera stream at
+  // the requested facing mode, feeds it through the zoom-crop canvas
+  // above, and publishes the canvas's own stream as the camera track —
+  // instead of publishing the raw camera directly. This is what makes
+  // zoom actually change what other people see (a true crop/scale of
+  // the image, at the quality tier's chosen resolution/bitrate), rather
+  // than just how the video looks in your own local preview. Called
+  // fresh on camera-on, facing-mode flip, and quality-tier change; NOT
+  // called on a plain zoom-level change, which is instant via the ref
+  // the draw loop reads every frame.
+  async function startCameraPipeline({ fm = facingMode, quality = videoQuality } = {}) {
+    const room = roomRef.current;
+    if (!room) return;
+
+    stopRawCapture();
+    const preset = VIDEO_QUALITY_PRESETS[quality];
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: fm,
+        width: { ideal: preset.resolution.width },
+        height: { ideal: preset.resolution.height },
+      },
+    });
+    rawStreamRef.current = stream;
+
+    const video = hiddenVideoRef.current;
+    video.srcObject = stream;
+    await video.play().catch(() => {});
+
+    const canvas = zoomCanvasRef.current;
+    canvas.width = preset.resolution.width;
+    canvas.height = preset.resolution.height;
+
+    zoomAnimRef.current = requestAnimationFrame(drawZoomFrame);
+
+    const canvasStream = canvas.captureStream(preset.encoding.maxFramerate || 30);
+    const canvasTrack = canvasStream.getVideoTracks()[0];
+
+    if (publishedCanvasTrackRef.current) {
+      await room.localParticipant.unpublishTrack(publishedCanvasTrackRef.current, true);
+    }
+    await room.localParticipant.publishTrack(canvasTrack, {
+      source: Track.Source.Camera,
+      name: 'camera',
+      videoEncoding: preset.encoding,
+    });
+    publishedCanvasTrackRef.current = canvasTrack;
+  }
+
+  async function stopCameraPipeline() {
+    const room = roomRef.current;
+    if (publishedCanvasTrackRef.current) {
+      await room?.localParticipant.unpublishTrack(publishedCanvasTrackRef.current, true);
+      publishedCanvasTrackRef.current = null;
+    }
+    stopRawCapture();
   }
 
   async function toggleCam() {
-    const room = roomRef.current;
-    if (!room) return;
     const next = !camOn;
     try {
-      const preset = VIDEO_QUALITY_PRESETS[videoQuality];
-      const publication = await room.localParticipant.setCameraEnabled(
-        next,
-        { facingMode, resolution: preset.resolution },
-        { videoEncoding: preset.encoding }
-      );
+      if (next) {
+        await startCameraPipeline();
+      } else {
+        await stopCameraPipeline();
+        setDigitalZoom(1);
+      }
       setCamOn(next);
-      if (next) checkZoomCapability(publication?.videoTrack);
-      else setZoomCaps(null);
     } catch (err) {
       setMediaError(describeMediaError(err, 'camera'));
     }
   }
 
-  // Switches between the three quality tiers. Changing published
-  // bitrate on a live track isn't something restartTrack can do (it
-  // only affects capture-side constraints like resolution/facingMode)
-  // — so this briefly toggles the camera off and back on with the new
-  // settings, which does interrupt the video for a moment for anyone
-  // watching.
+  // Switches between the three quality tiers. Since we're always
+  // publishing the zoom-canvas's own stream rather than the raw camera,
+  // a quality change means restarting the whole pipeline at the new
+  // tier's resolution/bitrate — a brief interruption for anyone
+  // watching, same trade-off as before.
   async function changeVideoQuality(nextQuality) {
-    const room = roomRef.current;
-    if (!room || nextQuality === videoQuality) return;
+    if (nextQuality === videoQuality) return;
     setVideoQuality(nextQuality);
     if (!camOn) return; // takes effect next time the camera turns on
     setSwitchingQuality(true);
     try {
-      await room.localParticipant.setCameraEnabled(false);
-      const preset = VIDEO_QUALITY_PRESETS[nextQuality];
-      const publication = await room.localParticipant.setCameraEnabled(
-        true,
-        { facingMode, resolution: preset.resolution },
-        { videoEncoding: preset.encoding }
-      );
-      checkZoomCapability(publication?.videoTrack);
+      await startCameraPipeline({ quality: nextQuality });
     } catch (err) {
       setMediaError(describeMediaError(err, 'camera'));
     } finally {
@@ -432,27 +493,20 @@ export default function Classroom() {
   }
 
   // Switches between front ("user") and back ("environment") cameras on
-  // devices that have both — restartTrack swaps the capture device on
-  // the already-published track rather than a full disable/re-enable,
-  // so it doesn't interrupt the call for anyone watching.
+  // devices that have both. Since capture now goes through getUserMedia
+  // directly rather than LiveKit's own device switching, this restarts
+  // the pipeline with the new facing mode rather than using restartTrack.
   async function flipCamera() {
-    const room = roomRef.current;
-    if (!room || !camOn) return;
+    if (!camOn) return;
     const nextFacing = facingMode === 'environment' ? 'user' : 'environment';
     try {
-      const publication = room.localParticipant.getTrackPublication(Track.Source.Camera);
-      const track = publication?.videoTrack;
-      if (!track) return;
-      await track.restartTrack({
-        facingMode: nextFacing,
-        resolution: VIDEO_QUALITY_PRESETS[videoQuality].resolution,
-      });
+      await startCameraPipeline({ fm: nextFacing });
       setFacingMode(nextFacing);
-      checkZoomCapability(track);
     } catch (err) {
       setMediaError(describeMediaError(err, 'camera'));
     }
   }
+
   async function toggleScreenShare() {
     const room = roomRef.current;
     if (!room) return;
@@ -642,6 +696,21 @@ export default function Classroom() {
                 </div>
               )}
               <div ref={audioContainerRef} style={{ display: 'none' }} />
+              {/* Feeds the zoom-crop canvas below — never shown directly.
+                  Deliberately NOT display:none: some browsers pause video
+                  decoding/frame updates for display:none elements, which
+                  would silently stall the zoom pipeline. This keeps it
+                  "rendered" while being invisible and out of the way. */}
+              <video
+                ref={hiddenVideoRef}
+                muted
+                playsInline
+                style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+              />
+              <canvas
+                ref={zoomCanvasRef}
+                style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+              />
               <Captions myName={user.name} />
               {audioBlocked && (
                 <button className="audio-unlock-banner" onClick={enableAudio}>
@@ -649,17 +718,18 @@ export default function Classroom() {
                 </button>
               )}
               {selfRecordError && <p className="caption-error" style={{ top: 44 }}>{selfRecordError}</p>}
-              {zoomCaps && (
+              {camOn && (
                 <div className="zoom-control">
                   <span className="zoom-icon">🔍</span>
                   <input
                     type="range"
-                    min={zoomCaps.min}
-                    max={zoomCaps.max}
-                    step={zoomCaps.step}
-                    value={zoomLevel}
-                    onChange={(e) => setZoom(Number(e.target.value))}
+                    min="1"
+                    max="10"
+                    step="0.5"
+                    value={digitalZoom}
+                    onChange={(e) => setDigitalZoom(Number(e.target.value))}
                   />
+                  <span className="zoom-value">{digitalZoom}x</span>
                 </div>
               )}
               {camOn && user.role !== 'student' && (

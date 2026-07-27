@@ -352,6 +352,7 @@ button.ghost {
   width: 110px;
   accent-color: var(--chalk-yellow);
 }
+.zoom-value { font-size: 0.75rem; color: #fff; min-width: 28px; }
 
 .audio-unlock-banner {
   position: absolute;
