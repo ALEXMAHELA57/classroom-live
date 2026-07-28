@@ -422,54 +422,67 @@ export default function Classroom() {
     rawStreamRef.current = null;
   }
 
-  // (Re)starts the whole camera pipeline: grabs a raw camera stream at
-  // the requested facing mode, feeds it through the zoom-crop canvas
-  // above, and publishes the canvas's own stream as the camera track —
-  // instead of publishing the raw camera directly. This is what makes
-  // zoom actually change what other people see (a true crop/scale of
-  // the image, at the quality tier's chosen resolution/bitrate), rather
-  // than just how the video looks in your own local preview. Called
-  // fresh on camera-on, facing-mode flip, and quality-tier change; NOT
-  // called on a plain zoom-level change, which is instant via the ref
-  // the draw loop reads every frame.
-  async function startCameraPipeline({ fm = facingMode, quality = videoQuality } = {}) {
+  // Publishing through the zoom canvas has real CPU cost — drawing every
+  // frame (especially at 4K) on top of the normal encoder work is what
+  // caused stutter once this ran unconditionally, even at 1x zoom where
+  // no actual cropping was happening. Fix: only pay that cost when zoom
+  // is genuinely in use. At 1x, publish the camera directly (native
+  // browser capture+encode, same as before zoom existed — no canvas
+  // involved, no extra overhead). Only switch onto the canvas pipeline
+  // when zoom moves above 1x, and switch back off it when zoom returns
+  // to 1x. This is the one function that knows how to tear down
+  // whichever path was previously active and stand up whichever path
+  // the new state calls for.
+  async function applyCameraState({ fm = facingMode, quality = videoQuality, zoom = digitalZoom } = {}) {
     const room = roomRef.current;
     if (!room) return;
 
+    // Tear down both paths unconditionally — simpler and more reliable
+    // than tracking which one was previously active.
     stopRawCapture();
-    const preset = VIDEO_QUALITY_PRESETS[quality];
-
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: fm,
-        width: { ideal: preset.resolution.width },
-        height: { ideal: preset.resolution.height },
-      },
-    });
-    rawStreamRef.current = stream;
-
-    const video = hiddenVideoRef.current;
-    video.srcObject = stream;
-    await video.play().catch(() => {});
-
-    const canvas = zoomCanvasRef.current;
-    canvas.width = preset.resolution.width;
-    canvas.height = preset.resolution.height;
-
-    zoomAnimRef.current = requestAnimationFrame(drawZoomFrame);
-
-    const canvasStream = canvas.captureStream(preset.encoding.maxFramerate || 30);
-    const canvasTrack = canvasStream.getVideoTracks()[0];
-
     if (publishedCanvasTrackRef.current) {
       await room.localParticipant.unpublishTrack(publishedCanvasTrackRef.current, true);
+      publishedCanvasTrackRef.current = null;
     }
-    await room.localParticipant.publishTrack(canvasTrack, {
-      source: Track.Source.Camera,
-      name: 'camera',
-      videoEncoding: preset.encoding,
-    });
-    publishedCanvasTrackRef.current = canvasTrack;
+    await room.localParticipant.setCameraEnabled(false);
+
+    const preset = VIDEO_QUALITY_PRESETS[quality];
+
+    if (zoom > 1) {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: fm,
+          width: { ideal: preset.resolution.width },
+          height: { ideal: preset.resolution.height },
+        },
+      });
+      rawStreamRef.current = stream;
+
+      const video = hiddenVideoRef.current;
+      video.srcObject = stream;
+      await video.play().catch(() => {});
+
+      const canvas = zoomCanvasRef.current;
+      canvas.width = preset.resolution.width;
+      canvas.height = preset.resolution.height;
+
+      zoomAnimRef.current = requestAnimationFrame(drawZoomFrame);
+
+      const canvasStream = canvas.captureStream(preset.encoding.maxFramerate || 30);
+      const canvasTrack = canvasStream.getVideoTracks()[0];
+      await room.localParticipant.publishTrack(canvasTrack, {
+        source: Track.Source.Camera,
+        name: 'camera',
+        videoEncoding: preset.encoding,
+      });
+      publishedCanvasTrackRef.current = canvasTrack;
+    } else {
+      await room.localParticipant.setCameraEnabled(
+        true,
+        { facingMode: fm, resolution: preset.resolution },
+        { videoEncoding: preset.encoding }
+      );
+    }
   }
 
   async function stopCameraPipeline() {
@@ -479,13 +492,14 @@ export default function Classroom() {
       publishedCanvasTrackRef.current = null;
     }
     stopRawCapture();
+    await room?.localParticipant.setCameraEnabled(false);
   }
 
   async function toggleCam() {
     const next = !camOn;
     try {
       if (next) {
-        await startCameraPipeline();
+        await applyCameraState();
       } else {
         await stopCameraPipeline();
         setDigitalZoom(1);
@@ -496,18 +510,16 @@ export default function Classroom() {
     }
   }
 
-  // Switches between the three quality tiers. Since we're always
-  // publishing the zoom-canvas's own stream rather than the raw camera,
-  // a quality change means restarting the whole pipeline at the new
-  // tier's resolution/bitrate — a brief interruption for anyone
-  // watching, same trade-off as before.
+  // Switches between the three quality tiers — always a brief
+  // interruption for anyone watching, since bitrate can't change on a
+  // live track without republishing, regardless of which path is active.
   async function changeVideoQuality(nextQuality) {
     if (nextQuality === videoQuality) return;
     setVideoQuality(nextQuality);
     if (!camOn) return; // takes effect next time the camera turns on
     setSwitchingQuality(true);
     try {
-      await startCameraPipeline({ quality: nextQuality });
+      await applyCameraState({ quality: nextQuality });
     } catch (err) {
       setMediaError(describeMediaError(err, 'camera'));
     } finally {
@@ -516,18 +528,30 @@ export default function Classroom() {
   }
 
   // Switches between front ("user") and back ("environment") cameras on
-  // devices that have both. Since capture now goes through getUserMedia
-  // directly rather than LiveKit's own device switching, this restarts
-  // the pipeline with the new facing mode rather than using restartTrack.
+  // devices that have both.
   async function flipCamera() {
     if (!camOn) return;
     const nextFacing = facingMode === 'environment' ? 'user' : 'environment';
     try {
-      await startCameraPipeline({ fm: nextFacing });
+      await applyCameraState({ fm: nextFacing });
       setFacingMode(nextFacing);
     } catch (err) {
       setMediaError(describeMediaError(err, 'camera'));
     }
+  }
+
+  // Called from the zoom slider. Adjusting the level while already on
+  // the canvas path (i.e. zoom staying above 1x throughout) is instant —
+  // just updates the ref the draw loop reads every frame, no republish.
+  // Only crossing the 1x boundary in either direction needs to actually
+  // switch pipelines.
+  function handleZoomChange(value) {
+    const wasZoomed = digitalZoom > 1;
+    const willBeZoomed = value > 1;
+    setDigitalZoom(value);
+    zoomLevelRef.current = value;
+    if (!camOn || wasZoomed === willBeZoomed) return;
+    applyCameraState({ zoom: value }).catch((err) => setMediaError(describeMediaError(err, 'camera')));
   }
 
   async function toggleScreenShare() {
@@ -750,7 +774,7 @@ export default function Classroom() {
                     max="10"
                     step="0.5"
                     value={digitalZoom}
-                    onChange={(e) => setDigitalZoom(Number(e.target.value))}
+                    onChange={(e) => handleZoomChange(Number(e.target.value))}
                   />
                   <span className="zoom-value">{digitalZoom}x</span>
                 </div>
