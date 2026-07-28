@@ -14,17 +14,36 @@ export default function MyRecordings() {
   const [selected, setSelected] = useState({});
   const [uploadingNew, setUploadingNew] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [justRecordedId, setJustRecordedId] = useState(null);
+  const [justRecordedStaffId, setJustRecordedStaffId] = useState('');
+  const [sharingJustRecorded, setSharingJustRecorded] = useState(false);
 
   async function handleNewRecording(blob) {
     setUploadingNew(true);
     setUploadError('');
     try {
-      await uploadSelfRecording(blob);
+      const data = await uploadSelfRecording(blob);
+      setJustRecordedId(data.recording.id);
+      setJustRecordedStaffId('');
       refresh();
     } catch (err) {
       setUploadError(err.message);
     } finally {
       setUploadingNew(false);
+    }
+  }
+
+  async function shareJustRecorded() {
+    if (!justRecordedId || !justRecordedStaffId) return;
+    setSharingJustRecorded(true);
+    try {
+      await shareSelfRecording(justRecordedId, justRecordedStaffId);
+      setJustRecordedId(null);
+      refresh();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSharingJustRecorded(false);
     }
   }
 
@@ -79,6 +98,35 @@ export default function MyRecordings() {
           <p className="muted">Uploading your recording…</p>
         ) : (
           <SelfRecorder onRecorded={handleNewRecording} />
+        )}
+
+        {justRecordedId && (
+          <div className="card subject-card" style={{ borderColor: 'var(--chalkboard)', marginTop: '1rem' }}>
+            <p className="admin-section-label" style={{ marginTop: 0 }}>Recording saved — share it now?</p>
+            <p className="muted" style={{ fontSize: '0.8rem' }}>
+              Choose who this recording is for, or skip and share it later from the list below.
+            </p>
+            <div className="admin-create-form">
+              <select
+                value={justRecordedStaffId}
+                onChange={(e) => setJustRecordedStaffId(e.target.value)}
+                autoFocus
+              >
+                <option value="">Share with…</option>
+                {staff.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <button onClick={shareJustRecorded} disabled={!justRecordedStaffId || sharingJustRecorded}>
+                {sharingJustRecorded ? 'Sharing…' : 'Share'}
+              </button>
+              <button className="ghost" onClick={() => setJustRecordedId(null)}>
+                Skip for now
+              </button>
+            </div>
+          </div>
         )}
 
         <h3 style={{ marginTop: '1.5rem' }}>Saved recordings</h3>
