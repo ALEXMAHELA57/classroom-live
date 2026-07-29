@@ -65,7 +65,7 @@ export default function MyRecordings() {
     refresh();
     listStaff()
       .then((data) => setStaff(data.staff))
-      .catch(() => {});
+      .catch((err) => setError(`Could not load staff list: ${err.message}`));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user]);
 
