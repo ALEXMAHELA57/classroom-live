@@ -116,6 +116,7 @@ export default function MyRecordings() {
                 {staff.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
+                    {s.role === 'superadmin' ? ' (Admin)' : ''}
                   </option>
                 ))}
               </select>
@@ -149,6 +150,7 @@ export default function MyRecordings() {
                 {staff.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
+                    {s.role === 'superadmin' ? ' (Admin)' : ''}
                   </option>
                 ))}
               </select>

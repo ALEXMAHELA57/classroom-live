@@ -584,8 +584,14 @@ app.get('/api/students', auth.requireAuth, auth.requireRole('staff', 'superadmin
 // who to share a self-recording with.
 app.get('/api/staff', auth.requireAuth, async (req, res) => {
   try {
-    const staff = (await auth.listUsers()).filter((u) => u.role === 'staff' && u.status === 'approved');
-    res.json({ staff: staff.map((s) => ({ id: s.id, name: s.name, email: s.email })) });
+    // Staff and superadmin are both valid people for a student to share
+    // a self-recording with — a superadmin might genuinely be the one
+    // reviewing it (e.g. a small school where the admin also teaches),
+    // so this isn't staff-only.
+    const staff = (await auth.listUsers()).filter(
+      (u) => (u.role === 'staff' || u.role === 'superadmin') && u.status === 'approved'
+    );
+    res.json({ staff: staff.map((s) => ({ id: s.id, name: s.name, email: s.email, role: s.role })) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Could not list staff' });
