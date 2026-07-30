@@ -528,12 +528,43 @@ export default function Classroom() {
   }
 
   // Switches between front ("user") and back ("environment") cameras on
-  // devices that have both.
+  // devices that have both. When on the direct (non-zoomed) path, this
+  // uses restartTrack to swap the capture device on the already-
+  // published track — proven more reliable across devices than a full
+  // stop-and-republish cycle, which can race with the camera hardware
+  // not having fully released yet on some phones. When on the canvas
+  // (zoomed) path, only the raw source stream feeding the canvas needs
+  // to change — the published canvas track itself stays untouched.
   async function flipCamera() {
     if (!camOn) return;
     const nextFacing = facingMode === 'environment' ? 'user' : 'environment';
     try {
-      await applyCameraState({ fm: nextFacing });
+      if (digitalZoom > 1) {
+        rawStreamRef.current?.getTracks().forEach((t) => t.stop());
+        const preset = VIDEO_QUALITY_PRESETS[videoQuality];
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: nextFacing,
+            width: { ideal: preset.resolution.width },
+            height: { ideal: preset.resolution.height },
+          },
+        });
+        rawStreamRef.current = stream;
+        hiddenVideoRef.current.srcObject = stream;
+        await hiddenVideoRef.current.play().catch(() => {});
+      } else {
+        const room = roomRef.current;
+        const publication = room?.localParticipant.getTrackPublication(Track.Source.Camera);
+        const track = publication?.videoTrack;
+        if (track) {
+          await track.restartTrack({
+            facingMode: nextFacing,
+            resolution: VIDEO_QUALITY_PRESETS[videoQuality].resolution,
+          });
+        } else {
+          await applyCameraState({ fm: nextFacing });
+        }
+      }
       setFacingMode(nextFacing);
     } catch (err) {
       setMediaError(describeMediaError(err, 'camera'));
