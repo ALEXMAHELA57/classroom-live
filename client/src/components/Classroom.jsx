@@ -44,6 +44,25 @@ const SCREEN_SHARE_SUPPORTED =
 // demanding tier permanently regardless of their connection/device.
 // Picking a lower tier isn't a fallback or a compromise; it's a real
 // choice for a weak connection or an older device.
+// Zoom itself stays a standard, honest proportional crop (2x = half the
+// frame width/height, matching how zoom is conventionally defined) — but
+// mapping the SLIDER linearly onto that meant most of its length landed
+// in "loses a lot of the frame" territory, since the crop shrinks fast
+// as the number climbs. This curve keeps the full 1x-10x zoom range
+// available, but spends most of the slider's physical length on gentle,
+// fine-grained control near 1x-3x (the common case), only reaching the
+// more extreme end near the far right of the slider — good for a quick
+// framing nudge and for an occasional extreme close-up alike.
+const ZOOM_SLIDER_MIN = 0;
+const ZOOM_SLIDER_MAX = 100;
+function sliderPositionToZoom(position) {
+  const t = position / ZOOM_SLIDER_MAX;
+  return 1 + 9 * t * t; // 1x at position 0, 10x at position 100
+}
+function zoomToSliderPosition(zoom) {
+  return Math.sqrt(Math.max(0, zoom - 1) / 9) * ZOOM_SLIDER_MAX;
+}
+
 const VIDEO_QUALITY_PRESETS = {
   low: {
     label: 'Data saver',
@@ -801,13 +820,13 @@ export default function Classroom() {
                   <span className="zoom-icon">🔍</span>
                   <input
                     type="range"
-                    min="1"
-                    max="10"
-                    step="0.5"
-                    value={digitalZoom}
-                    onChange={(e) => handleZoomChange(Number(e.target.value))}
+                    min={ZOOM_SLIDER_MIN}
+                    max={ZOOM_SLIDER_MAX}
+                    step="1"
+                    value={zoomToSliderPosition(digitalZoom)}
+                    onChange={(e) => handleZoomChange(sliderPositionToZoom(Number(e.target.value)))}
                   />
-                  <span className="zoom-value">{digitalZoom}x</span>
+                  <span className="zoom-value">{digitalZoom.toFixed(1)}x</span>
                 </div>
               )}
               {camOn && user.role !== 'student' && (
