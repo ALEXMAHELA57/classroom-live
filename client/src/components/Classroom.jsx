@@ -182,12 +182,50 @@ export default function Classroom() {
   const zoomLevelRef = useRef(1);
   const publishedCanvasTrackRef = useRef(null);
   const selfRecordChunksRef = useRef([]);
+  // Tracks in-flight "grace period" removals — see scheduleRemoveTile below.
+  const pendingRemovalsRef = useRef(new Map());
 
+  // Matches by participant identity + kind (camera vs screen), not just
+  // trackSid — swapping between the native camera and the zoom canvas
+  // (or changing video quality) republishes under a NEW trackSid, but
+  // it's still logically the same tile slot. Replacing in place keeps
+  // the tile COUNT stable across that swap instead of dropping then
+  // re-adding an entry, which is what caused every tile in the room's
+  // grid to visibly resize on a quality change or 1x zoom crossing.
   function upsertTile(tile) {
-    setTiles((prev) => [...prev.filter((t) => t.sid !== tile.sid), tile]);
+    setTiles((prev) => {
+      const next = prev.filter((t) => {
+        const sameSlot = t.identity === tile.identity && t.kind === tile.kind;
+        if (sameSlot) {
+          const pending = pendingRemovalsRef.current.get(t.sid);
+          if (pending) {
+            clearTimeout(pending);
+            pendingRemovalsRef.current.delete(t.sid);
+          }
+        }
+        return !sameSlot && t.sid !== tile.sid;
+      });
+      return [...next, tile];
+    });
   }
   function removeTile(sid) {
     setTiles((prev) => prev.filter((t) => t.sid !== sid));
+  }
+  // A track disappearing doesn't always mean it's gone for good —
+  // swapping camera<->zoom-canvas or changing video quality tears down
+  // and republishes under a new sid within milliseconds. Removing the
+  // tile immediately made the grid reflow (tile count briefly drops,
+  // then climbs back) for that gap, visible to the whole room as tiles
+  // resizing. Waiting briefly gives the republish a chance to arrive
+  // and claim the same slot via upsertTile above, so a normal swap
+  // never touches the grid at all — only a track that's actually gone
+  // (participant left, camera turned off) ends up removed.
+  function scheduleRemoveTile(sid) {
+    const timeoutId = setTimeout(() => {
+      removeTile(sid);
+      pendingRemovalsRef.current.delete(sid);
+    }, 600);
+    pendingRemovalsRef.current.set(sid, timeoutId);
   }
 
   useEffect(() => {
@@ -211,6 +249,7 @@ export default function Classroom() {
             sid: publication.trackSid,
             kind: publication.source === Track.Source.ScreenShare ? 'screen' : 'camera',
             label: participant.name || participant.identity,
+            identity: participant.identity,
             track,
             isLocal: false,
           });
@@ -222,7 +261,7 @@ export default function Classroom() {
       });
 
       r.on(RoomEvent.TrackUnsubscribed, (track, publication) => {
-        if (track.kind === Track.Kind.Video) removeTile(publication.trackSid);
+        if (track.kind === Track.Kind.Video) scheduleRemoveTile(publication.trackSid);
         track.detach().forEach((el) => el.remove());
       });
 
@@ -242,13 +281,14 @@ export default function Classroom() {
             sid: publication.trackSid,
             kind: publication.source === Track.Source.ScreenShare ? 'screen' : 'camera',
             label: `${user.name} (you)`,
+            identity: r.localParticipant.identity,
             track: publication.track,
             isLocal: true,
           });
         }
       });
       r.on(RoomEvent.LocalTrackUnpublished, (publication) => {
-        removeTile(publication.trackSid);
+        scheduleRemoveTile(publication.trackSid);
       });
 
       r.on(RoomEvent.Disconnected, () => {
