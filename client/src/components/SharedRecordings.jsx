@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext.jsx';
-import { listSharedRecordings, downloadSelfRecording } from '../lib/api.js';
+import { listSharedRecordings, downloadSelfRecording, unshareSelfRecording } from '../lib/api.js';
 import TopBar from './TopBar.jsx';
 
 export default function SharedRecordings() {
@@ -10,15 +10,20 @@ export default function SharedRecordings() {
   const [recordings, setRecordings] = useState([]);
   const [error, setError] = useState('');
 
+  function refresh() {
+    listSharedRecordings()
+      .then((data) => setRecordings(data.recordings))
+      .catch((err) => setError(err.message));
+  }
+
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
       navigate('/login?redirect=/shared-recordings');
       return;
     }
-    listSharedRecordings()
-      .then((data) => setRecordings(data.recordings))
-      .catch((err) => setError(err.message));
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, navigate]);
 
   if (authLoading || !user) return null;
@@ -29,6 +34,16 @@ export default function SharedRecordings() {
       await downloadSelfRecording(recordingId);
     } catch (err) {
       setError(err.message || 'Could not download this recording.');
+    }
+  }
+
+  async function unshare(recordingId) {
+    setError('');
+    try {
+      await unshareSelfRecording(recordingId);
+      refresh();
+    } catch (err) {
+      setError(err.message || 'Could not unshare this recording.');
     }
   }
 
@@ -58,6 +73,9 @@ export default function SharedRecordings() {
                   <td>
                     <button className="ghost" onClick={() => download(r.id)}>
                       Download
+                    </button>
+                    <button className="ghost" onClick={() => unshare(r.id)}>
+                      Unshare
                     </button>
                   </td>
                 </tr>

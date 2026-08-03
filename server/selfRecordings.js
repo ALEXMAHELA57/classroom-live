@@ -69,6 +69,25 @@ export async function shareRecording(recordingId, studentId, staffId) {
   return { id: recordingId };
 }
 
+// Clears the share without touching the recording itself -- the
+// student keeps their recording, it just stops showing up for staff.
+// Any of: the owning student, the staff member it's currently shared
+// with, or a superadmin (who can see/manage every share) can do this.
+export async function unshareRecording(recordingId, user) {
+  const raw = await getRaw(recordingId);
+  if (!raw) throw new Error('Recording not found');
+  const allowed =
+    user.role === 'superadmin' ||
+    raw.student_id === user.id ||
+    (raw.shared_with_staff_id && raw.shared_with_staff_id === user.id);
+  if (!allowed) throw new Error('Not permitted');
+  await db.query(
+    'UPDATE self_recordings SET shared_with_staff_id = NULL, shared_at = NULL WHERE id = $1',
+    [recordingId]
+  );
+  return { id: recordingId };
+}
+
 // Owner student, the staff member it's shared with, or a superadmin can
 // download it. Anyone else — including other staff it wasn't shared
 // with — cannot.

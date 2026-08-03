@@ -655,6 +655,18 @@ app.post('/api/self-recordings/:id/share', auth.requireAuth, auth.requireRole('s
   }
 });
 
+// Unshare -- not a hard delete. The owning student, the staff member
+// it's currently shared with, or a superadmin can sever the share;
+// permission specifics are enforced in selfRecordings.unshareRecording.
+app.delete('/api/self-recordings/:id/share', auth.requireAuth, async (req, res) => {
+  try {
+    await selfRecordings.unshareRecording(req.params.id, req.user);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(403).json({ error: err.message });
+  }
+});
+
 app.get(
   '/api/self-recordings/shared-with-me',
   auth.requireAuth,

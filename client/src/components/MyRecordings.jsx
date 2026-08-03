@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext.jsx';
-import { listMySelfRecordings, listStaff, shareSelfRecording, downloadSelfRecording, uploadSelfRecording } from '../lib/api.js';
+import { listMySelfRecordings, listStaff, shareSelfRecording, unshareSelfRecording, downloadSelfRecording, uploadSelfRecording } from '../lib/api.js';
 import SelfRecorder from './SelfRecorder.jsx';
 import TopBar from './TopBar.jsx';
 
@@ -91,6 +91,15 @@ export default function MyRecordings() {
     }
   }
 
+  async function unshare(recordingId) {
+    try {
+      await unshareSelfRecording(recordingId);
+      refresh();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   return (
     <div className="page">
       <TopBar title="My recordings" backTo="/" />
@@ -166,6 +175,11 @@ export default function MyRecordings() {
               <button onClick={() => share(r.id)} disabled={!selected[r.id]}>
                 Share
               </button>
+              {r.sharedWithName && (
+                <button className="ghost" onClick={() => unshare(r.id)}>
+                  Unshare
+                </button>
+              )}
               <button className="ghost" onClick={() => download(r.id)}>
                 Download
               </button>

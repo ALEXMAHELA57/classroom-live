@@ -396,6 +396,14 @@ export async function shareSelfRecording(recordingId, staffId) {
   return parseOrThrow(res);
 }
 
+export async function unshareSelfRecording(recordingId) {
+  const res = await fetch(`${API_BASE}/api/self-recordings/${recordingId}/share`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  return parseOrThrow(res);
+}
+
 export async function listSharedRecordings() {
   const res = await fetch(`${API_BASE}/api/self-recordings/shared-with-me`, { headers: authHeaders() });
   return parseOrThrow(res);
