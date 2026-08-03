@@ -441,33 +441,31 @@ export default function Classroom() {
       const vw = video.videoWidth;
       const vh = video.videoHeight;
 
-      // Cameras frequently don't actually deliver the aspect ratio we
-      // asked for (getUserMedia's width/height are "ideal" hints, not
-      // guarantees — phones in particular often default to 4:3 rather
-      // than 16:9). Naively cropping by the same factor on both axes
-      // and stretching straight onto a fixed-aspect canvas would
-      // silently distort the image (visible as lopsided/horizontal-only
-      // enlargement). Fix: first crop the source down to whatever
-      // sub-region actually matches the canvas's own aspect ratio (a
-      // standard "cover" crop), THEN apply the zoom as an additional
-      // proportional crop on top of that already-correct region.
-      const targetAspect = canvas.width / canvas.height;
-      const sourceAspect = vw / vh;
-      let baseW = vw;
-      let baseH = vh;
-      if (sourceAspect > targetAspect) {
-        baseW = vh * targetAspect; // source is relatively wider — trim the sides
-      } else {
-        baseH = vw / targetAspect; // source is relatively taller — trim top/bottom
-      }
-      const baseX = (vw - baseW) / 2;
-      const baseY = (vh - baseH) / 2;
+      // Only crop by the zoom factor itself, centered on the source's
+      // own native frame — never trim to match the canvas's aspect
+      // ratio. Previously this also did a "cover" crop to force the
+      // source into the canvas's 16:9 shape, which silently cut off
+      // the top/bottom of any camera whose native sensor isn't 16:9
+      // (common — many laptop webcams are 4:3), even before any zoom
+      // was applied. Letterboxing (below) keeps the whole picture
+      // instead of trimming it.
+      const cropW = vw / zoom;
+      const cropH = vh / zoom;
+      const sx = (vw - cropW) / 2;
+      const sy = (vh - cropH) / 2;
 
-      const cropW = baseW / zoom;
-      const cropH = baseH / zoom;
-      const sx = baseX + (baseW - cropW) / 2;
-      const sy = baseY + (baseH - cropH) / 2;
-      ctx.drawImage(video, sx, sy, cropW, cropH, 0, 0, canvas.width, canvas.height);
+      // Fit that crop onto the canvas without distorting or cropping
+      // further — "contain" scaling, centered, with letterbox bars
+      // filling whatever space is left over on the shorter axis.
+      const scale = Math.min(canvas.width / cropW, canvas.height / cropH);
+      const drawW = cropW * scale;
+      const drawH = cropH * scale;
+      const dx = (canvas.width - drawW) / 2;
+      const dy = (canvas.height - drawH) / 2;
+
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, sx, sy, cropW, cropH, dx, dy, drawW, drawH);
     }
     zoomAnimRef.current = requestAnimationFrame(drawZoomFrame);
   }
