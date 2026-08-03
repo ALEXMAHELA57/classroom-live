@@ -1,4 +1,4 @@
-﻿import { nanoid } from 'nanoid';
+import { nanoid } from 'nanoid';
 import * as db from './db.js';
 
 export async function createRecording({ studentId, filename, originalName }) {
@@ -33,7 +33,7 @@ export async function listSharedWithStaff(staffId) {
 
 // A superadmin isn't "the staff member it was shared with" for any
 // particular recording, so listSharedWithStaff (scoped to one staff
-// id) always came back empty for them -- there was no view at all for
+// id) always came back empty for them — there was no view at all for
 // what's been shared room-wide, even though getRecordingForDownload
 // already lets a superadmin download any of them. This lists every
 // share across all students/staff, regardless of who it went to.
@@ -68,8 +68,8 @@ export async function shareRecording(recordingId, studentId, staffId) {
 }
 
 // Owner student, the staff member it's shared with, or a superadmin can
-// download it. Anyone else â€” including other staff it wasn't shared
-// with â€” cannot.
+// download it. Anyone else — including other staff it wasn't shared
+// with — cannot.
 export async function getRecordingForDownload(recordingId, user) {
   const raw = await getRaw(recordingId);
   if (!raw) throw new Error('Recording not found');

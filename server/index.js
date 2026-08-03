@@ -1,4 +1,4 @@
-﻿import 'dotenv/config';
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import http from 'http';
@@ -38,19 +38,19 @@ const {
 } = process.env;
 
 // CLIENT_ORIGIN can be a single URL or a comma-separated list (e.g. an
-// apex domain plus its www subdomain) ??? the Access-Control-Allow-Origin
+// apex domain plus its www subdomain) — the Access-Control-Allow-Origin
 // header can only ever contain exactly one origin per response, never a
 // literal comma-joined list, so this checks the incoming request's
 // origin against the allowed set and echoes back just that one.
 const ALLOWED_CLIENT_ORIGINS = CLIENT_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean);
 // A single canonical origin for building links that get sent elsewhere
-// (invite links, password reset emails) ??? those need one definite URL,
+// (invite links, password reset emails) — those need one definite URL,
 // not a set of allowed ones. Defaults to the first configured origin.
 const PRIMARY_CLIENT_ORIGIN = ALLOWED_CLIENT_ORIGINS[0];
 
 function corsOriginCheck(origin, callback) {
   // No origin header at all (e.g. curl, server-to-server, some webhooks)
-  // ??? allow it through; there's nothing to check against.
+  // — allow it through; there's nothing to check against.
   if (!origin || ALLOWED_CLIENT_ORIGINS.includes(origin)) {
     callback(null, true);
   } else {
@@ -83,20 +83,20 @@ const upload = multer({
     destination: UPLOAD_DIR,
     filename: (req, file, cb) => cb(null, `${nanoid(12)}-${file.originalname}`),
   }),
-  limits: { fileSize: 300 * 1024 * 1024 }, // 300MB ??? video self-recordings need real headroom, unlike the original slides/notes use case
+  limits: { fileSize: 300 * 1024 * 1024 }, // 300MB — video self-recordings need real headroom, unlike the original slides/notes use case
 });
 
 const app = express();
 app.use(cors({ origin: corsOriginCheck }));
 
 // LiveKit calls this when an egress (recording) actually finishes
-// uploading ??? this is what lets us know a recording is truly ready to
+// uploading — this is what lets us know a recording is truly ready to
 // download, instead of assuming it's done the moment "stop" was clicked.
 // Must be registered before express.json() below: verifying the
 // webhook's signature requires the exact raw request body, which
 // express.json() would otherwise already have consumed and parsed away.
 // Configure this URL (https://<your-backend>/api/livekit/webhook) in
-// your LiveKit Cloud project's Settings ??? Webhooks, or in livekit.yaml
+// your LiveKit Cloud project's Settings → Webhooks, or in livekit.yaml
 // under `webhook.urls` if self-hosting.
 app.post('/api/livekit/webhook', express.raw({ type: 'application/webhook+json' }), async (req, res) => {
   if (!webhookReceiver) return res.status(400).send('LiveKit is not configured');
@@ -159,7 +159,7 @@ app.post('/api/auth/google-register', async (req, res) => {
 });
 
 // Always responds the same way whether or not the email matches an
-// account ??? see auth.requestPasswordReset for why.
+// account — see auth.requestPasswordReset for why.
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
     const { email } = req.body || {};
@@ -167,7 +167,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     await auth.requestPasswordReset(email, resetBaseUrl);
   } catch (err) {
     console.error('[auth] forgot-password error', err);
-    // Still don't leak anything to the caller ??? log it and move on.
+    // Still don't leak anything to the caller — log it and move on.
   }
   res.json({ message: 'If an account exists for that email, a reset link has been sent.' });
 });
@@ -176,7 +176,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { token, password } = req.body || {};
     await auth.resetPassword(token, password);
-    res.json({ message: 'Password updated ??? you can log in now.' });
+    res.json({ message: 'Password updated — you can log in now.' });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -255,7 +255,7 @@ app.post(
 // --- Live (ephemeral) room state -----------------------------------------
 // Everything durable about a room (name, host, time limit, files) lives in
 // Postgres via roomsRepo. This map holds only what's genuinely tied to
-// open connections right now ??? the hand-raise queue, who's connected,
+// open connections right now — the hand-raise queue, who's connected,
 // which socket maps to which LiveKit identity. There's nothing to persist
 // here; when the process restarts, live sessions have already dropped
 // anyway.
@@ -325,7 +325,7 @@ function scheduleTimeLimit(roomId, endsAt) {
 
 // If nobody at all joins a room within 15 minutes of creating it, it's
 // safe to assume the class isn't happening (forgotten invite, wrong
-// link, plans changed) ??? auto-end it so it doesn't sit around forever
+// link, plans changed) — auto-end it so it doesn't sit around forever
 // looking "live" to a superadmin checking in on active sessions.
 const NO_SHOW_TIMEOUT_MS = 15 * 60_000;
 function scheduleNoShowCheck(roomId) {
@@ -340,7 +340,7 @@ function scheduleNoShowCheck(roomId) {
 }
 
 // Superadmin can see every currently ongoing session (not just their own)
-// and get a token to join any of them ??? no invite link needed. This
+// and get a token to join any of them — no invite link needed. This
 // deliberately reuses the same /api/token flow everyone else uses; the
 // only thing this endpoint adds is *discovery* of live room IDs, which a
 // superadmin otherwise has no way to find without an invite link.
@@ -353,7 +353,7 @@ app.get('/api/admin/live-sessions', auth.requireAuth, auth.requireRole('superadm
     );
     const sessions = rows
       // A DB row with ended = false only means nobody has explicitly
-      // closed it yet ??? it says nothing about whether anyone is
+      // closed it yet — it says nothing about whether anyone is
       // actually connected right now. A room where the host just closed
       // their browser tab (or a restart wiped the in-memory timers that
       // would've caught this) would otherwise sit here forever looking
@@ -426,17 +426,17 @@ app.post('/api/token', auth.requireAuth, async (req, res) => {
 
     if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET || !LIVEKIT_URL) {
       return res.status(500).json({
-        error: 'Server is missing LiveKit credentials ??? set LIVEKIT_API_KEY/LIVEKIT_API_SECRET/LIVEKIT_URL in .env and restart the server.',
+        error: 'Server is missing LiveKit credentials — set LIVEKIT_API_KEY/LIVEKIT_API_SECRET/LIVEKIT_URL in .env and restart the server.',
       });
     }
 
     const isTeacher = req.user.id === room.hostUserId;
 
-    // LiveKit enforces one live connection per identity, full stop ???
+    // LiveKit enforces one live connection per identity, full stop —
     // that's the protocol's own behavior, not something our server
     // configures. A student staying to one device is intentional (ties
     // into attendance integrity), but staff/superadmin legitimately
-    // need to be signed in from a laptop and a phone simultaneously ???
+    // need to be signed in from a laptop and a phone simultaneously —
     // giving them a fresh identity suffix per session is what actually
     // lets LiveKit treat those as distinct participants instead of one
     // replacing the other. Each new token request (i.e. each fresh page
@@ -480,7 +480,7 @@ app.get('/api/rooms/:roomId', auth.requireAuth, async (req, res) => {
 });
 
 // --- File sharing ------------------------------------------------------
-// File bytes stay on local disk for this MVP ??? move to S3/GCS before
+// File bytes stay on local disk for this MVP — move to S3/GCS before
 // production, same as recordings. Metadata (who uploaded what, when) is
 // in Postgres so the list survives a server restart even though the
 // actual files are still local-disk-only for now.
@@ -558,7 +558,7 @@ app.get('/api/subjects', auth.requireAuth, async (req, res) => {
   }
 });
 
-// Deletes a subject entirely ??? enrollments, quizzes, assignments, and
+// Deletes a subject entirely — enrollments, quizzes, assignments, and
 // their submissions all go with it. No undo, so the client should
 // confirm with the person before calling this.
 app.delete('/api/subjects/:subjectId', auth.requireAuth, auth.requireRole('staff', 'superadmin'), async (req, res) => {
@@ -580,12 +580,12 @@ app.get('/api/students', auth.requireAuth, auth.requireRole('staff', 'superadmin
   }
 });
 
-// Any approved account can see the staff list ??? students need it to pick
+// Any approved account can see the staff list — students need it to pick
 // who to share a self-recording with.
 app.get('/api/staff', auth.requireAuth, async (req, res) => {
   try {
     // Staff and superadmin are both valid people for a student to share
-    // a self-recording with ??? a superadmin might genuinely be the one
+    // a self-recording with — a superadmin might genuinely be the one
     // reviewing it (e.g. a small school where the admin also teaches),
     // so this isn't staff-only.
     const staff = (await auth.listUsers()).filter(
@@ -600,7 +600,7 @@ app.get('/api/staff', auth.requireAuth, async (req, res) => {
 
 // --- Student self-recordings ------------------------------------------
 // A student's own recording of themselves (mic/camera, toggled on
-// manually by the student) ??? distinct from the room-level session
+// manually by the student) — distinct from the room-level session
 // recording. Stored on local disk, same caveat as everything else there.
 app.post(
   '/api/self-recordings',
@@ -708,7 +708,7 @@ app.post(
   }
 );
 
-// Alternative to uploading a file ??? type the syllabus directly. Setting
+// Alternative to uploading a file — type the syllabus directly. Setting
 // this clears any previously uploaded file, and vice versa: there's one
 // syllabus, not both at once.
 app.put(
@@ -726,9 +726,9 @@ app.put(
   }
 );
 
-// Serves the syllabus for viewing only ??? as plain text if it was typed
+// Serves the syllabus for viewing only — as plain text if it was typed
 // manually, or as an inline-rendered file otherwise. This is a soft
-// deterrent, not real protection ??? nothing stops a screenshot of whatever
+// deterrent, not real protection — nothing stops a screenshot of whatever
 // ends up on screen either way.
 app.get('/api/subjects/:subjectId/syllabus', auth.requireAuth, async (req, res) => {
   try {
@@ -747,7 +747,7 @@ app.get('/api/subjects/:subjectId/syllabus', auth.requireAuth, async (req, res) 
 
 // --- Quizzes ---------------------------------------------------------------
 // Generated from a subject's syllabus and/or a topic via the Anthropic API.
-// Published immediately with no teacher review step ??? an explicit choice,
+// Published immediately with no teacher review step — an explicit choice,
 // not an oversight; question quality depends entirely on what the model
 // produces.
 app.post(
@@ -774,7 +774,7 @@ app.post(
 app.get('/api/subjects/:subjectId/quizzes', auth.requireAuth, async (req, res) => {
   try {
     // Anyone who can see the subject (owning staff, superadmin, or an
-    // enrolled student ??? same rule as syllabus visibility) can see the
+    // enrolled student — same rule as syllabus visibility) can see the
     // quiz list; getOwnedSubject/listSubjectsFor already gate that
     // upstream via the subject list, so no extra check needed here beyond
     // being authenticated.
@@ -785,7 +785,7 @@ app.get('/api/subjects/:subjectId/quizzes', auth.requireAuth, async (req, res) =
   }
 });
 
-// Every class session ever started for this subject ??? lets a teacher
+// Every class session ever started for this subject — lets a teacher
 // find their way back to a past class to check attendance/recordings,
 // since there's otherwise no way to rediscover a room's URL once its
 // live session has ended. Teacher-only (like the roster), not visible
@@ -799,7 +799,7 @@ app.get('/api/subjects/:subjectId/rooms', auth.requireAuth, async (req, res) => 
   }
 });
 
-// Write a quiz by hand instead of generating it ??? no AI involved.
+// Write a quiz by hand instead of generating it — no AI involved.
 app.post(
   '/api/subjects/:subjectId/quizzes/manual',
   auth.requireAuth,
@@ -820,7 +820,7 @@ app.post(
   }
 );
 
-// Upload an already-written quiz document ??? parsed into structured
+// Upload an already-written quiz document — parsed into structured
 // questions rather than inventing new ones.
 app.post(
   '/api/subjects/:subjectId/quizzes/upload',
@@ -844,7 +844,7 @@ app.post(
   }
 );
 
-// Edit an existing quiz's questions ??? works whether it was generated or
+// Edit an existing quiz's questions — works whether it was generated or
 // written by hand.
 app.put('/api/quizzes/:quizId', auth.requireAuth, auth.requireRole('staff', 'superadmin'), async (req, res) => {
   try {
@@ -895,7 +895,7 @@ app.delete('/api/quizzes/:quizId', auth.requireAuth, auth.requireRole('staff', '
   }
 });
 
-// Student view ??? strips answers unless already submitted.
+// Student view — strips answers unless already submitted.
 app.get('/api/quizzes/:quizId', auth.requireAuth, async (req, res) => {
   try {
     const quiz = await quizzes.getQuizForStudent(req.params.quizId, req.user.id);
@@ -905,7 +905,7 @@ app.get('/api/quizzes/:quizId', auth.requireAuth, async (req, res) => {
   }
 });
 
-// Teacher view ??? always includes correct answers/rubrics.
+// Teacher view — always includes correct answers/rubrics.
 app.get('/api/quizzes/:quizId/full', auth.requireAuth, auth.requireRole('staff', 'superadmin'), async (req, res) => {
   try {
     const quiz = await quizzes.getQuizForOwner(req.params.quizId, req.user);
@@ -1021,7 +1021,7 @@ app.post(
   }
 );
 
-// Edit an existing assignment ??? works whether it was generated, written
+// Edit an existing assignment — works whether it was generated, written
 // by hand, or created from an upload.
 app.put('/api/assignments/:assignmentId', auth.requireAuth, auth.requireRole('staff', 'superadmin'), async (req, res) => {
   try {
@@ -1092,7 +1092,7 @@ app.get('/api/assignments/:assignmentId/source-file', auth.requireAuth, async (r
   }
 });
 
-// Student view ??? never includes the rubric.
+// Student view — never includes the rubric.
 app.get('/api/assignments/:assignmentId', auth.requireAuth, async (req, res) => {
   try {
     const assignment = await assignments.getAssignmentForStudent(req.params.assignmentId, req.user.id);
@@ -1102,7 +1102,7 @@ app.get('/api/assignments/:assignmentId', auth.requireAuth, async (req, res) => 
   }
 });
 
-// Teacher view ??? includes the rubric.
+// Teacher view — includes the rubric.
 app.get(
   '/api/assignments/:assignmentId/full',
   auth.requireAuth,
@@ -1153,7 +1153,7 @@ app.get(
 // --- Billing -----------------------------------------------------------
 // Deliberately simple: an admin-editable instructions block (bank
 // details, payment methods, whatever they want to write) plus a manual
-// paid/unpaid ledger. Not a payment processor ??? no actual money moves
+// paid/unpaid ledger. Not a payment processor — no actual money moves
 // through this, it's a record-keeping tool for payments that happened
 // elsewhere (bank transfer, mobile money, cash, etc.).
 app.get('/api/billing/instructions', auth.requireAuth, async (req, res) => {
@@ -1244,7 +1244,7 @@ app.post(
       }
       if (!egressClient || !recordingStorageConfigured) {
         return res.status(400).json({
-          error: "Recording storage isn't configured ??? set S3_BUCKET/S3_REGION/S3_ACCESS_KEY/S3_SECRET in .env",
+          error: "Recording storage isn't configured — set S3_BUCKET/S3_REGION/S3_ACCESS_KEY/S3_SECRET in .env",
         });
       }
       const live = getLiveRoom(req.params.roomId);
@@ -1303,7 +1303,7 @@ app.post(
       // this call returns. Marking it "processing" here (rather than
       // "completed") keeps it correctly hidden from downloads until the
       // /api/livekit/webhook handler above hears egress_ended and flips
-      // it to "completed" ??? otherwise a download attempted too soon
+      // it to "completed" — otherwise a download attempted too soon
       // fails with NoSuchKey because the file isn't in R2 yet.
       await recordingsRepo.markRecordingStatus(live.activeEgressId, 'processing');
       live.activeEgressId = null;
@@ -1331,7 +1331,7 @@ app.get('/api/rooms/:roomId/recordings', auth.requireAuth, async (req, res) => {
   }
 });
 
-// Present/absent breakdown for a room linked to a subject ??? only that
+// Present/absent breakdown for a room linked to a subject — only that
 // subject's teacher or a superadmin can see it, same access level as
 // the roster itself.
 app.get('/api/rooms/:roomId/attendance', auth.requireAuth, async (req, res) => {
@@ -1349,7 +1349,7 @@ app.get('/api/rooms/:roomId/attendance', auth.requireAuth, async (req, res) => {
 });
 
 // Returns a short-lived presigned URL the browser can download directly
-// from R2 ??? the file goes straight to the user's device, never proxied
+// from R2 — the file goes straight to the user's device, never proxied
 // through this server.
 app.get(
   '/api/rooms/:roomId/recordings/:recordingId/download-url',
@@ -1361,7 +1361,7 @@ app.get(
     const recording = await recordingsRepo.getRecording(req.params.roomId, req.params.recordingId);
     if (!recording) return res.status(404).json({ error: 'Recording not found' });
     if (recording.status !== 'completed') {
-      return res.status(409).json({ error: "This recording is still processing ??? try again in a minute." });
+      return res.status(409).json({ error: "This recording is still processing — try again in a minute." });
     }
     const filename = `${room.name.replace(/[^a-z0-9]+/gi, '-')}-${recording.startedAt}.mp4`;
     const url = await s3.getDownloadUrl(recording.s3Key, filename);
@@ -1374,7 +1374,7 @@ app.get(
 
 // Safety net: an error thrown inside an async route/socket handler becomes
 // an unhandled promise rejection, and Node.js kills the whole process on
-// those by default ??? which would disconnect every user, not just the one
+// those by default — which would disconnect every user, not just the one
 // making the failing request. Log it instead of crashing.
 process.on('unhandledRejection', (err) => {
   console.error('[unhandled rejection]', err);
@@ -1411,12 +1411,12 @@ io.on('connection', (socket) => {
       // Single-device enforcement: if this account already has an active
       // connection in this room (a different device/tab), disconnect it
       // in favor of this new one. This mirrors what LiveKit's media layer
-      // already does automatically for students ??? its identity is
+      // already does automatically for students — its identity is
       // `user-${user.id}`, the same across devices for one account, so
       // LiveKit itself drops the older media connection when a new one
       // connects with that identity. Staff/superadmin get a per-session
       // identity suffix instead (see /api/token above) specifically so
-      // they CAN be on multiple devices at once ??? so this kick logic is
+      // they CAN be on multiple devices at once — so this kick logic is
       // skipped for them too, to keep this signaling layer consistent
       // with what LiveKit itself is actually doing.
       const isPrivilegedRole = user.role === 'staff' || user.role === 'superadmin';
@@ -1543,7 +1543,7 @@ io.on('connection', (socket) => {
     if (targetSocketId) io.to(targetSocketId).emit('removed');
   });
 
-  // Teacher explicitly ending the class ??? as opposed to just leaving,
+  // Teacher explicitly ending the class — as opposed to just leaving,
   // which only disconnects them and leaves the room open for everyone
   // else. This disconnects all participants and closes the room.
   socket.on('session:end', async () => {
@@ -1563,7 +1563,7 @@ io.on('connection', (socket) => {
   });
 
   // Captions: each speaker's own browser transcribes their own mic locally
-  // (Web Speech API) and broadcasts the text ??? the server just relays it.
+  // (Web Speech API) and broadcasts the text — the server just relays it.
   socket.on('caption:text', ({ text, final }) => {
     if (!currentRoomId || !text) return;
     socket.to(currentRoomId).emit('caption:text', { name: currentName, text, final: Boolean(final) });
@@ -1594,7 +1594,7 @@ async function start() {
   await auth.ensureBootstrapSuperadmin();
 
   // Reschedule time-limit cutoffs for rooms that were still active before
-  // this restart ??? otherwise a server restart would silently cancel every
+  // this restart — otherwise a server restart would silently cancel every
   // pending cutoff.
   if (db.isConfigured()) {
     const active = await roomsRepo.listActiveTimedRooms();
@@ -1607,4 +1607,3 @@ async function start() {
 }
 
 start();
-
