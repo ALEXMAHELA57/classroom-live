@@ -86,6 +86,15 @@ const upload = multer({
   limits: { fileSize: 300 * 1024 * 1024 }, // 300MB — video self-recordings need real headroom, unlike the original slides/notes use case
 });
 
+// Self-recordings go straight to R2 instead of local disk (see
+// server/s3.js uploadObject) -- memoryStorage buffers the upload in
+// RAM just long enough to hand it off, nothing touches Render's
+// ephemeral filesystem.
+const selfRecordingUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 300 * 1024 * 1024 },
+});
+
 const app = express();
 app.use(cors({ origin: corsOriginCheck }));
 
@@ -601,18 +610,23 @@ app.get('/api/staff', auth.requireAuth, async (req, res) => {
 // --- Student self-recordings ------------------------------------------
 // A student's own recording of themselves (mic/camera, toggled on
 // manually by the student) — distinct from the room-level session
-// recording. Stored on local disk, same caveat as everything else there.
+// recording. Stored on R2, same as session recordings.
 app.post(
   '/api/self-recordings',
   auth.requireAuth,
   auth.requireRole('student'),
-  upload.single('file'),
+  selfRecordingUpload.single('file'),
   async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ error: 'No recording received' });
+      if (!recordingStorageConfigured) {
+        return res.status(500).json({ error: 'Recording storage is not configured' });
+      }
+      const key = `self-recordings/${nanoid(12)}-${req.file.originalname}`;
+      await s3.uploadObject(key, req.file.buffer, req.file.mimetype);
       const recording = await selfRecordings.createRecording({
         studentId: req.user.id,
-        filename: req.file.filename,
+        filename: key,
         originalName: req.file.originalname,
       });
       res.json({ recording });
@@ -662,7 +676,8 @@ app.get(
 app.get('/api/self-recordings/:id/download', auth.requireAuth, async (req, res) => {
   try {
     const file = await selfRecordings.getRecordingForDownload(req.params.id, req.user);
-    res.download(path.join(UPLOAD_DIR, file.filename), file.originalName);
+    const url = await s3.getDownloadUrl(file.r2Key, file.originalName);
+    res.json({ url });
   } catch (err) {
     res.status(403).json({ error: err.message });
   }

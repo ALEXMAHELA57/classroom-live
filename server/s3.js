@@ -1,4 +1,4 @@
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 const { S3_BUCKET, S3_REGION, S3_ACCESS_KEY, S3_SECRET, S3_ENDPOINT } = process.env;
@@ -34,4 +34,22 @@ export async function getDownloadUrl(key, downloadFilename) {
     ResponseContentDisposition: `attachment; filename="${downloadFilename}"`,
   });
   return getSignedUrl(client, command, { expiresIn: 300 }); // 5 minutes
+}
+
+// Direct-to-R2 upload for files that arrive as a plain buffer (browser
+// self-recordings, not LiveKit egress). Unlike egress recordings, which
+// LiveKit writes to R2 itself, these come through our server via
+// multer, so we push them to R2 here instead of ever touching the
+// local disk — Render's free-tier filesystem is ephemeral and wipes on
+// every redeploy/cold-start restart, which was silently losing these.
+export async function uploadObject(key, buffer, contentType) {
+  if (!client) throw new Error('Recording storage is not configured');
+  await client.send(
+    new PutObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+    })
+  );
 }

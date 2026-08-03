@@ -1,6 +1,8 @@
 import { nanoid } from 'nanoid';
 import * as db from './db.js';
 
+// `filename` stores the R2 object key (e.g. "self-recordings/abc123-clip.webm"),
+// not a local disk path -- see server/index.js upload route.
 export async function createRecording({ studentId, filename, originalName }) {
   const row = { id: nanoid(10), studentId, filename, originalName, createdAt: Date.now() };
   await db.query(
@@ -78,7 +80,7 @@ export async function getRecordingForDownload(recordingId, user) {
     raw.student_id === user.id ||
     (raw.shared_with_staff_id && raw.shared_with_staff_id === user.id);
   if (!allowed) throw new Error('Not permitted');
-  return { filename: raw.filename, originalName: raw.original_name };
+  return { r2Key: raw.filename, originalName: raw.original_name };
 }
 
 function toPublic(r) {

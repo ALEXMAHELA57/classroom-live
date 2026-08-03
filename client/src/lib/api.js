@@ -405,17 +405,11 @@ export async function downloadSelfRecording(recordingId) {
   const res = await fetch(`${API_BASE}/api/self-recordings/${recordingId}/download`, {
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Could not download recording');
-  const disposition = res.headers.get('Content-Disposition') || '';
-  const match = disposition.match(/filename="?([^"]+)"?/);
-  const filename = match ? match[1] : 'recording.webm';
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Could not download recording');
+  // Navigating the browser to a presigned R2 URL downloads the file
+  // directly to the device — it never passes through our server.
+  window.location.href = data.url;
 }
 
 export { API_BASE };
