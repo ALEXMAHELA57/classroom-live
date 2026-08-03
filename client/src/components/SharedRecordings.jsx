@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { listSharedRecordings, downloadSelfRecording } from '../lib/api.js';
@@ -22,6 +22,15 @@ export default function SharedRecordings() {
   }, [authLoading, user, navigate]);
 
   if (authLoading || !user) return null;
+
+  async function download(recordingId) {
+    setError('');
+    try {
+      await downloadSelfRecording(recordingId);
+    } catch (err) {
+      setError(err.message || 'Could not download this recording.');
+    }
+  }
 
   return (
     <div className="page">
@@ -47,7 +56,7 @@ export default function SharedRecordings() {
                   {r.staffName && <td>{r.staffName}</td>}
                   <td>{new Date(r.sharedAt).toLocaleString()}</td>
                   <td>
-                    <button className="ghost" onClick={() => downloadSelfRecording(r.id)}>
+                    <button className="ghost" onClick={() => download(r.id)}>
                       Download
                     </button>
                   </td>

@@ -1,4 +1,4 @@
-import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 const { S3_BUCKET, S3_REGION, S3_ACCESS_KEY, S3_SECRET, S3_ENDPOINT } = process.env;
@@ -52,4 +52,23 @@ export async function uploadObject(key, buffer, contentType) {
       ContentType: contentType,
     })
   );
+}
+
+// A presigned URL is generated at sign-time without ever checking R2 --
+// pointing it at a key that was never actually uploaded (e.g. a
+// recording made before the R2 migration, when it still lived on local
+// disk) doesn't fail until the browser tries to fetch it, and by then
+// it downloads R2's XML "no such key" error AS IF it were the file,
+// which shows up to the user as "this video is corrupt" instead of a
+// clear "not available" message. Checking existence first lets callers
+// return an honest error instead.
+export async function objectExists(key) {
+  if (!client) return false;
+  try {
+    await client.send(new HeadObjectCommand({ Bucket: S3_BUCKET, Key: key }));
+    return true;
+  } catch (err) {
+    if (err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404) return false;
+    throw err;
+  }
 }

@@ -676,6 +676,12 @@ app.get(
 app.get('/api/self-recordings/:id/download', auth.requireAuth, async (req, res) => {
   try {
     const file = await selfRecordings.getRecordingForDownload(req.params.id, req.user);
+    if (!(await s3.objectExists(file.r2Key))) {
+      return res.status(404).json({
+        error:
+          'This recording is no longer available (it was made before storage was upgraded). Please re-record and share again.',
+      });
+    }
     const url = await s3.getDownloadUrl(file.r2Key, file.originalName);
     res.json({ url });
   } catch (err) {

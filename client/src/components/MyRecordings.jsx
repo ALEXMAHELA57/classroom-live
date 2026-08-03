@@ -71,6 +71,15 @@ export default function MyRecordings() {
 
   if (authLoading || !user) return null;
 
+  async function download(recordingId) {
+    setError('');
+    try {
+      await downloadSelfRecording(recordingId);
+    } catch (err) {
+      setError(err.message || 'Could not download this recording.');
+    }
+  }
+
   async function share(recordingId) {
     const staffId = selected[recordingId];
     if (!staffId) return;
@@ -157,7 +166,7 @@ export default function MyRecordings() {
               <button onClick={() => share(r.id)} disabled={!selected[r.id]}>
                 Share
               </button>
-              <button className="ghost" onClick={() => downloadSelfRecording(r.id)}>
+              <button className="ghost" onClick={() => download(r.id)}>
                 Download
               </button>
             </div>
