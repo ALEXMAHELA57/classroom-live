@@ -1,4 +1,4 @@
-import 'dotenv/config';
+﻿import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import http from 'http';
@@ -647,7 +647,11 @@ app.get(
   auth.requireRole('staff', 'superadmin'),
   async (req, res) => {
     try {
-      res.json({ recordings: await selfRecordings.listSharedWithStaff(req.user.id) });
+      const recordings =
+        req.user.role === 'superadmin'
+          ? await selfRecordings.listAllShared()
+          : await selfRecordings.listSharedWithStaff(req.user.id);
+      res.json({ recordings });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Could not list shared recordings' });

@@ -1,4 +1,4 @@
-import { nanoid } from 'nanoid';
+﻿import { nanoid } from 'nanoid';
 import * as db from './db.js';
 
 export async function createRecording({ studentId, filename, originalName }) {
@@ -31,6 +31,24 @@ export async function listSharedWithStaff(staffId) {
   return rows.map((r) => ({ ...toPublic(r), studentName: r.student_name }));
 }
 
+// A superadmin isn't "the staff member it was shared with" for any
+// particular recording, so listSharedWithStaff (scoped to one staff
+// id) always came back empty for them -- there was no view at all for
+// what's been shared room-wide, even though getRecordingForDownload
+// already lets a superadmin download any of them. This lists every
+// share across all students/staff, regardless of who it went to.
+export async function listAllShared() {
+  const { rows } = await db.query(
+    `SELECT sr.*, student.name AS student_name, staff.name AS staff_name
+     FROM self_recordings sr
+     JOIN users student ON student.id = sr.student_id
+     JOIN users staff ON staff.id = sr.shared_with_staff_id
+     WHERE sr.shared_with_staff_id IS NOT NULL
+     ORDER BY sr.shared_at DESC`
+  );
+  return rows.map((r) => ({ ...toPublic(r), studentName: r.student_name, staffName: r.staff_name }));
+}
+
 async function getRaw(recordingId) {
   const { rows } = await db.query('SELECT * FROM self_recordings WHERE id = $1', [recordingId]);
   return rows[0] || null;
@@ -50,8 +68,8 @@ export async function shareRecording(recordingId, studentId, staffId) {
 }
 
 // Owner student, the staff member it's shared with, or a superadmin can
-// download it. Anyone else — including other staff it wasn't shared
-// with — cannot.
+// download it. Anyone else â€” including other staff it wasn't shared
+// with â€” cannot.
 export async function getRecordingForDownload(recordingId, user) {
   const raw = await getRaw(recordingId);
   if (!raw) throw new Error('Recording not found');

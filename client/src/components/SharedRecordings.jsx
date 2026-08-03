@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { listSharedRecordings, downloadSelfRecording } from '../lib/api.js';
@@ -35,6 +35,7 @@ export default function SharedRecordings() {
             <thead>
               <tr>
                 <th>Student</th>
+                {recordings[0].staffName && <th>Shared with</th>}
                 <th>Shared</th>
                 <th></th>
               </tr>
@@ -43,6 +44,7 @@ export default function SharedRecordings() {
               {recordings.map((r) => (
                 <tr key={r.id}>
                   <td>{r.studentName}</td>
+                  {r.staffName && <td>{r.staffName}</td>}
                   <td>{new Date(r.sharedAt).toLocaleString()}</td>
                   <td>
                     <button className="ghost" onClick={() => downloadSelfRecording(r.id)}>
