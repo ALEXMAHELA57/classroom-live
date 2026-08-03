@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './lib/AuthContext.jsx';
 import { createRoom, listSubjects } from './lib/api.js';
@@ -59,15 +59,15 @@ export default function App() {
       <div className="dashboard-header">
         <p className="dashboard-eyebrow">{roleLabel} dashboard</p>
         <h1>Welcome back, {user.name.split(' ')[0]}</h1>
-        <p className="muted">Signed in as {user.name} · {user.email}</p>
+        <p className="muted">Signed in as {user.name} Â· {user.email}</p>
       </div>
 
       <div className="dashboard-body">
         {canHost && (
           <div className="dash-tile primary" style={{ cursor: 'default', marginBottom: '1.75rem' }}>
-            <div className="dash-tile-icon">●</div>
+            <div className="dash-tile-icon">â—</div>
             <span className="dash-tile-title">Start a class</span>
-            <span className="dash-tile-desc">Opens a live room right away — share the link with your students.</span>
+            <span className="dash-tile-desc">Opens a live room right away â€” share the link with your students.</span>
             {subjects.length > 0 && (
               <select
                 value={subjectId}
@@ -93,7 +93,7 @@ export default function App() {
                 style={{ margin: 0, flex: 1 }}
               />
               <button onClick={startClass} disabled={starting} style={{ flexShrink: 0 }}>
-                {starting ? 'Starting…' : 'Start'}
+                {starting ? 'Startingâ€¦' : 'Start'}
               </button>
             </div>
             {error && <p className="error" style={{ color: '#f2c4b6' }}>{error}</p>}
@@ -109,7 +109,7 @@ export default function App() {
         <div className="dashboard-section">
           <div className="dashboard-grid">
             <Link to="/subjects" className="dash-tile">
-              <div className="dash-tile-icon">📚</div>
+              <div className="dash-tile-icon">ðŸ“š</div>
               <span className="dash-tile-title">Subjects</span>
               <span className="dash-tile-desc">
                 {canHost ? 'Syllabi, quizzes, assignments, and rosters.' : 'Your classes, quizzes, and assignments.'}
@@ -117,36 +117,40 @@ export default function App() {
             </Link>
 
             <Link to="/billing" className="dash-tile">
-              <div className="dash-tile-icon">💳</div>
+              <div className="dash-tile-icon">ðŸ’³</div>
               <span className="dash-tile-title">Billing</span>
               <span className="dash-tile-desc">Manage your plan and payment details.</span>
             </Link>
 
             <Link to="/profile" className="dash-tile">
-              <div className="dash-tile-icon">👤</div>
+              <div className="dash-tile-icon">ðŸ‘¤</div>
               <span className="dash-tile-title">Profile</span>
               <span className="dash-tile-desc">Update your name or change your password.</span>
             </Link>
 
             {user.role === 'student' && (
               <Link to="/my-recordings" className="dash-tile">
-                <div className="dash-tile-icon">🎥</div>
+                <div className="dash-tile-icon">ðŸŽ¥</div>
                 <span className="dash-tile-title">My recordings</span>
                 <span className="dash-tile-desc">Recordings you've made and shared with staff.</span>
               </Link>
             )}
 
-            {user.role === 'staff' && (
+            {(user.role === 'staff' || user.role === 'superadmin') && (
               <Link to="/shared-recordings" className="dash-tile">
-                <div className="dash-tile-icon">🎥</div>
+                <div className="dash-tile-icon">ðŸŽ¥</div>
                 <span className="dash-tile-title">Shared recordings</span>
-                <span className="dash-tile-desc">Recordings students have shared with you.</span>
+                <span className="dash-tile-desc">
+                  {user.role === 'superadmin'
+                    ? 'Every recording students have shared with staff.'
+                    : "Recordings students have shared with you."}
+                </span>
               </Link>
             )}
 
             {user.role === 'superadmin' && (
               <Link to="/admin" className="dash-tile">
-                <div className="dash-tile-icon">👥</div>
+                <div className="dash-tile-icon">ðŸ‘¥</div>
                 <span className="dash-tile-title">Manage accounts</span>
                 <span className="dash-tile-desc">Approve, disable, or review staff and student accounts.</span>
               </Link>
@@ -154,7 +158,7 @@ export default function App() {
 
             {user.role === 'superadmin' && (
               <Link to="/admin/live-sessions" className="dash-tile">
-                <div className="dash-tile-icon">📡</div>
+                <div className="dash-tile-icon">ðŸ“¡</div>
                 <span className="dash-tile-title">Live sessions</span>
                 <span className="dash-tile-desc">See which classes are in progress right now.</span>
               </Link>
