@@ -220,10 +220,7 @@ export default function Home() {
             visited Classroom Live.
           </p>
         )}
-        <p className="muted">
-          &copy; {new Date().getFullYear()} Classroom Live &middot; <Link to="/login">Log in</Link>{' '}
-          &middot; <Link to="/register">Create account</Link>
-        </p>
+        <p className="muted">&copy; {new Date().getFullYear()} Classroom Live</p>
       </footer>
     </div>
   );
