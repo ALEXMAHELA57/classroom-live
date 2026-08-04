@@ -1,11 +1,33 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getVisitCount, recordVisit } from '../lib/api.js';
+import { getVisitCount, recordVisit, listPublicEducators } from '../lib/api.js';
 
-const AUDIENCES = [
-  { label: 'Primary school', desc: 'Build the basics with a teacher who makes it click.' },
-  { label: 'Secondary school', desc: 'Exam prep, coursework help, and subjects taught properly.' },
-  { label: 'University & beyond', desc: 'Specialist and career-focused teaching, one on one.' },
+const FEATURES = [
+  {
+    title: 'For Every Learner',
+    desc: "Whether you're in primary school, secondary school, university, or beyond, you belong here.",
+  },
+  {
+    title: 'Find the Right Educator',
+    desc: 'Connect with qualified educators who are passionate about teaching and your success.',
+  },
+  {
+    title: 'Live Interactive Classes',
+    desc: 'Join live sessions, ask questions, collaborate, and learn in real time.',
+  },
+  {
+    title: 'Achieve Your Goals',
+    desc: 'Get the knowledge and guidance you need to succeed in school, your career, and life.',
+  },
+];
+
+const TRUST_BADGES = ['Verified Educators', 'Live Interactive Classes', 'Safe & Secure', 'Learn Anytime'];
+
+const HOW_IT_WORKS = [
+  { step: '1', title: 'Create a free account', desc: 'Sign up as a student in under a minute.' },
+  { step: '2', title: 'Find your educator', desc: 'Browse educators and the subjects they teach.' },
+  { step: '3', title: 'Join a live class', desc: 'Meet live, ask questions, and learn in real time.' },
+  { step: '4', title: 'Track your progress', desc: 'Quizzes, assignments, and recordings, all in one place.' },
 ];
 
 // A visit is counted once per browser, gated by localStorage, not by
@@ -15,6 +37,8 @@ const VISIT_FLAG = 'clv-visited';
 
 export default function Home() {
   const [visitCount, setVisitCount] = useState(null);
+  const [educators, setEducators] = useState(null);
+  const [educatorsError, setEducatorsError] = useState('');
 
   useEffect(() => {
     getVisitCount()
@@ -29,6 +53,10 @@ export default function Home() {
         })
         .catch(() => {});
     }
+
+    listPublicEducators()
+      .then((d) => setEducators(d.educators))
+      .catch((err) => setEducatorsError(err.message));
   }, []);
 
   return (
@@ -47,6 +75,8 @@ export default function Home() {
         <div className="home-navbar-inner">
           <div className="home-navbar-links">
             <a href="#top">Home</a>
+            <a href="#educators">Find Educators</a>
+            <a href="#how-it-works">How it works</a>
             <a href="#about">About us</a>
             <a href="#contact">Contact us</a>
           </div>
@@ -69,9 +99,10 @@ export default function Home() {
             Succeed.
           </h1>
           <p className="home-hero-sub">
-            Classroom Live connects students with real teachers for the subjects and careers they
-            care about &mdash; primary school, secondary school, university, or anyone who wants to
-            learn something new. Find your teacher, learn live, and get where you're going.
+            Classroom Live connects students with qualified educators for the subjects and career
+            paths they care about. Whether you're in primary school, secondary school, university,
+            or simply looking to learn something new, you'll find the right educator to help you
+            reach your goals.
           </p>
           <div className="home-hero-actions">
             <Link to="/register">
@@ -81,6 +112,67 @@ export default function Home() {
               <button className="ghost home-hero-login">Log in</button>
             </Link>
           </div>
+          <ul className="home-trust-row">
+            {TRUST_BADGES.map((b) => (
+              <li key={b}>
+                <span className="home-trust-check">&#10003;</span>
+                {b}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className="home-section">
+        <div className="home-feature-grid">
+          {FEATURES.map((f) => (
+            <div className="home-feature-card" key={f.title}>
+              <h3 className="home-feature-title">{f.title}</h3>
+              <p className="home-feature-desc">{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="home-section" id="educators">
+        <p className="dashboard-eyebrow home-eyebrow">Find Educators</p>
+        <h2 className="home-section-title">Educators currently teaching on Classroom Live</h2>
+        {educatorsError && <p className="muted">{educatorsError}</p>}
+        {educators && educators.length === 0 && (
+          <p className="muted">
+            No educators have listed subjects yet &mdash; check back soon, or{' '}
+            <Link to="/register">create an account</Link> to be notified when classes open up.
+          </p>
+        )}
+        {educators && educators.length > 0 && (
+          <div className="home-educator-grid">
+            {educators.map((e) => (
+              <div className="home-educator-card" key={e.id}>
+                <span className="home-educator-name">{e.name}</span>
+                <div className="home-educator-subjects">
+                  {e.subjects.map((s) => (
+                    <span className="home-subject-chip" key={s}>
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="home-section" id="how-it-works">
+        <p className="dashboard-eyebrow home-eyebrow">How it works</p>
+        <h2 className="home-section-title">From sign-up to your first live class</h2>
+        <div className="home-steps-grid">
+          {HOW_IT_WORKS.map((s) => (
+            <div className="home-step-card" key={s.step}>
+              <span className="home-step-number">{s.step}</span>
+              <span className="home-step-title">{s.title}</span>
+              <span className="home-step-desc">{s.desc}</span>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -111,18 +203,6 @@ export default function Home() {
               </span>
             </p>
           </div>
-        </div>
-      </section>
-
-      <section className="home-section">
-        <p className="dashboard-eyebrow home-eyebrow">Who it's for</p>
-        <div className="home-audience-grid">
-          {AUDIENCES.map((a) => (
-            <div className="home-audience-card" key={a.label}>
-              <span className="home-audience-title">{a.label}</span>
-              <span className="home-audience-desc">{a.desc}</span>
-            </div>
-          ))}
         </div>
       </section>
 

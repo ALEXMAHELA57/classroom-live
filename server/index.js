@@ -618,6 +618,31 @@ app.get('/api/students', auth.requireAuth, auth.requireRole('staff', 'superadmin
 
 // Any approved account can see the staff list — students need it to pick
 // who to share a self-recording with.
+// Public educator directory for the homepage's "Find Educators" page --
+// deliberately separate from GET /api/staff (which is auth-only and
+// includes email for the self-recording share dropdown). This only
+// ever exposes a name and the subjects that staff member has created,
+// and only for staff whose account is still approved. An educator with
+// zero subjects created yet doesn't show up -- nothing to find.
+app.get('/api/public/educators', async (req, res) => {
+  try {
+    const { rows } = await db.query(`
+      SELECT s.staff_id, s.staff_name, array_agg(DISTINCT s.name ORDER BY s.name) AS subjects
+      FROM subjects s
+      JOIN users u ON u.id = s.staff_id
+      WHERE u.status = 'approved'
+      GROUP BY s.staff_id, s.staff_name
+      ORDER BY s.staff_name
+    `);
+    res.json({
+      educators: rows.map((r) => ({ id: r.staff_id, name: r.staff_name, subjects: r.subjects })),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not load educators' });
+  }
+});
+
 app.get('/api/staff', auth.requireAuth, async (req, res) => {
   try {
     // Staff and superadmin are both valid people for a student to share

@@ -1042,6 +1042,27 @@ select {
   font-weight: 400;
 }
 .home-hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.home-trust-row {
+  list-style: none;
+  margin: 2rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+}
+.home-trust-row li { display: flex; align-items: center; gap: 6px; font-size: 0.86rem; color: var(--muted); }
+.home-trust-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--success);
+  color: #fff;
+  font-size: 0.6rem;
+  flex-shrink: 0;
+}
 .home-hero-login { color: var(--chalkboard); border-color: var(--chalkboard); background: var(--paper-raised); }
 .home-hero-login:hover { background: var(--hero-bg); }
 
@@ -1090,23 +1111,68 @@ select {
 .home-contact-card a { color: var(--chalkboard); font-weight: 600; text-decoration: none; font-size: 1.02rem; }
 .home-contact-card a:hover { text-decoration: underline; }
 
-.home-audience-grid {
+.home-feature-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
 }
-.home-audience-card {
+.home-feature-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   padding: 1.5rem 1.6rem;
   background: var(--paper-raised);
   border-radius: 12px;
   box-shadow: var(--card-shadow);
   border-top: 3px solid var(--chalkboard);
 }
-.home-audience-title { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 1.08rem; color: var(--ink); }
-.home-audience-desc { color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
+.home-feature-title { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 1.05rem; color: var(--ink); margin: 0; }
+.home-feature-desc { color: var(--muted); font-size: 0.88rem; line-height: 1.5; margin: 0; }
+
+.home-educator-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+.home-educator-card {
+  padding: 1.25rem 1.4rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+}
+.home-educator-name { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 1.02rem; color: var(--ink); display: block; margin-bottom: 8px; }
+.home-educator-subjects { display: flex; flex-wrap: wrap; gap: 6px; }
+.home-subject-chip {
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--hero-bg);
+  color: var(--chalkboard);
+}
+
+.home-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+.home-step-card { display: flex; flex-direction: column; gap: 4px; }
+.home-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--chalkboard);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+.home-step-title { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 1rem; color: var(--ink); }
+.home-step-desc { color: var(--muted); font-size: 0.86rem; line-height: 1.5; }
 
 .home-strip {
   background: var(--hero-bg);

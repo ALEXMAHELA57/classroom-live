@@ -432,4 +432,9 @@ export async function recordVisit() {
   return parseOrThrow(res);
 }
 
+export async function listPublicEducators() {
+  const res = await fetch(`${API_BASE}/api/public/educators`);
+  return parseOrThrow(res);
+}
+
 export { API_BASE };
