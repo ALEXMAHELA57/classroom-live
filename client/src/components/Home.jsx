@@ -89,10 +89,10 @@ export default function Home() {
           <p className="dashboard-eyebrow home-eyebrow">About us</p>
           <h2 className="home-section-title">A platform built around finding the right teacher</h2>
           <p className="home-about-text">
-            Classroom Live is an online platform where students find teachers for the subjects and
-            careers they care about. Whether you're in primary school, secondary school, university,
-            or just curious about something new, you can find a teacher here and go after what you
-            need to learn.
+            Classroom Live connects students with qualified educators for the subjects and career
+            paths they care about. Whether you're in primary school, secondary school, university,
+            or simply looking to learn something new, you'll find the right educator to help you
+            reach your goals.
           </p>
         </div>
         <div className="home-info-block" id="contact">
