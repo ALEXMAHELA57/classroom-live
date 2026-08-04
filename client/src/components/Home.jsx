@@ -33,22 +33,35 @@ export default function Home() {
 
   return (
     <div className="home">
-      <header className="home-topbar">
-        <div className="home-topbar-inner">
+      <div className="home-masthead">
+        <div className="home-masthead-inner">
           <span className="auth-mark home-mark">CL</span>
-          <span className="home-wordmark">Classroom Live</span>
-          <nav className="home-topbar-actions">
+          <div className="home-masthead-text">
+            <span className="home-eyebrow-line">Online teaching platform</span>
+            <span className="home-wordmark">Classroom Live</span>
+          </div>
+        </div>
+      </div>
+
+      <nav className="home-navbar">
+        <div className="home-navbar-inner">
+          <div className="home-navbar-links">
+            <a href="#top">Home</a>
+            <a href="#about">About us</a>
+            <a href="#contact">Contact us</a>
+          </div>
+          <div className="home-navbar-actions">
             <Link to="/login">
-              <button className="ghost">Log in</button>
+              <button className="ghost home-nav-login">Log in</button>
             </Link>
             <Link to="/register">
-              <button>Create account</button>
+              <button className="home-nav-register">Create account</button>
             </Link>
-          </nav>
+          </div>
         </div>
-      </header>
+      </nav>
 
-      <section className="home-hero">
+      <section className="home-hero" id="top">
         <div className="home-hero-inner">
           <h1 className="home-hero-title">
             Learn. Understand.
@@ -71,7 +84,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="home-section home-info-grid">
+      <section className="home-section home-info-grid" id="about">
         <div className="home-info-block">
           <p className="dashboard-eyebrow home-eyebrow">About us</p>
           <h2 className="home-section-title">A platform built around finding the right teacher</h2>
@@ -82,7 +95,7 @@ export default function Home() {
             need to learn.
           </p>
         </div>
-        <div className="home-info-block">
+        <div className="home-info-block" id="contact">
           <p className="dashboard-eyebrow home-eyebrow">Contact us</p>
           <div className="home-contact-card card">
             <p className="home-contact-row">
