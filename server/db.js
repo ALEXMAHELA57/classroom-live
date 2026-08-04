@@ -201,6 +201,22 @@ export async function initSchema() {
       shared_with_staff_id TEXT REFERENCES users(id),
       shared_at BIGINT
     );
+
+    -- Single-row counter for the public homepage's visitor count.
+    -- Deliberately not per-visitor tracking (no IPs, no accounts) --
+    -- the client increments this once per browser (see /api/visits),
+    -- gated by a localStorage flag, so it's a rough unique-visitor
+    -- estimate rather than a precise or privacy-sensitive log.
+    CREATE TABLE IF NOT EXISTS site_visits (
+      id INTEGER PRIMARY KEY DEFAULT 1,
+      count BIGINT NOT NULL DEFAULT 0,
+      CHECK (id = 1)
+    );
+  `);
+
+  await pool.query(`
+    INSERT INTO site_visits (id, count) VALUES (1, 0)
+    ON CONFLICT (id) DO NOTHING;
   `);
 
   // Columns added after a table already existed in earlier versions of

@@ -954,3 +954,82 @@ select {
   .install-banner-actions { flex-direction: row; width: 100%; }
   .install-banner-actions button { flex: 1; }
 }
+
+/* --- Public homepage --- */
+.home { background: var(--paper); min-height: 100vh; min-height: 100dvh; }
+
+.home-topbar {
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-raised);
+}
+.home-topbar-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 14px 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.home-mark { margin-bottom: 0; width: 32px; height: 32px; font-size: 0.9rem; }
+.home-wordmark { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 1.05rem; flex: 1; }
+.home-topbar-actions { display: flex; gap: 8px; }
+
+.home-hero {
+  background: var(--chalkboard);
+  color: var(--paper);
+  padding: 4rem 1.5rem 3.5rem;
+}
+.home-hero-inner { max-width: 640px; margin: 0 auto; }
+.home-hero-title {
+  font-size: 2.6rem;
+  line-height: 1.08;
+  margin-bottom: 10px;
+}
+.home-chalk-underline { display: block; width: 160px; height: 14px; margin-bottom: 22px; }
+.home-hero-sub { color: #d7e0dc; font-size: 1.05rem; line-height: 1.55; max-width: 520px; margin-bottom: 1.75rem; }
+.home-hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.home-hero-login { color: var(--paper); border-color: rgba(241, 239, 230, 0.35); }
+.home-hero-login:hover { background: rgba(241, 239, 230, 0.1); }
+
+.home-section { max-width: 900px; margin: 0 auto; padding: 2.75rem 1.5rem 0; }
+.home-eyebrow { margin-bottom: 6px; }
+.home-section-title { font-size: 1.4rem; margin-bottom: 1.25rem; max-width: 560px; }
+
+.home-audience-grid,
+.home-subject-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+.home-static-tile { cursor: default; }
+.home-static-tile:hover { transform: none; border-color: var(--line); }
+
+.home-strip {
+  background: var(--sage);
+  text-align: center;
+  padding: 1.5rem 1.5rem;
+  margin-top: 2.75rem;
+}
+.home-strip p { margin: 0; max-width: 520px; margin: 0 auto; line-height: 1.5; }
+
+.home-about-text { max-width: 620px; line-height: 1.6; }
+
+.home-contact-card { max-width: 360px; }
+.home-contact-card p { margin: 0 0 8px; }
+.home-contact-card p:last-child { margin-bottom: 0; }
+.home-contact-card a { color: var(--ink); font-weight: 600; text-decoration: none; }
+.home-contact-card a:hover { text-decoration: underline; }
+
+.home-footer {
+  max-width: 900px;
+  margin: 3rem auto 0;
+  padding: 1.5rem 1.5rem 2.5rem;
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+.home-visit-count { margin-bottom: 6px; }
+
+@media (max-width: 560px) {
+  .home-hero-title { font-size: 2.1rem; }
+  .home-topbar-inner { flex-wrap: wrap; }
+}

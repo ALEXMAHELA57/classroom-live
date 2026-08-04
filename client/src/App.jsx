@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './lib/AuthContext.jsx';
 import { createRoom, listSubjects } from './lib/api.js';
+import Home from './components/Home.jsx';
 
 export default function App() {
   const { user, loading, logout } = useAuth();
@@ -24,19 +25,7 @@ export default function App() {
   if (loading) return null;
 
   if (!user) {
-    return (
-      <div className="auth-shell">
-        <div className="auth-card">
-          <div className="auth-mark">CL</div>
-          <h1>Classroom Live</h1>
-          <p className="muted">Log in to start or join a class.</p>
-          <Link to="/login"><button style={{ width: '100%' }}>Log in</button></Link>
-          <p className="muted center-pad-sm">
-            No account? <Link to="/register">Register</Link>
-          </p>
-        </div>
-      </div>
-    );
+    return <Home />;
   }
 
   async function startClass() {

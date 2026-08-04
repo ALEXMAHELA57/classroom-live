@@ -420,4 +420,16 @@ export async function downloadSelfRecording(recordingId) {
   window.location.href = data.url;
 }
 
+// Public homepage visitor counter -- no auth headers, these need to
+// work for people who've never logged in.
+export async function getVisitCount() {
+  const res = await fetch(`${API_BASE}/api/visits`);
+  return parseOrThrow(res);
+}
+
+export async function recordVisit() {
+  const res = await fetch(`${API_BASE}/api/visits`, { method: 'POST' });
+  return parseOrThrow(res);
+}
+
 export { API_BASE };

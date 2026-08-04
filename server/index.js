@@ -195,6 +195,33 @@ app.get('/api/auth/me', auth.requireAuth, (req, res) => {
   res.json({ user: req.user });
 });
 
+// Public homepage visitor counter -- deliberately unauthenticated (it
+// needs to work for people who've never logged in) and deliberately
+// coarse: no IP logging, no per-visitor rows, just a single incrementing
+// total. The client only calls POST once per browser, gated by a
+// localStorage flag on its end.
+app.get('/api/visits', async (req, res) => {
+  try {
+    const { rows } = await db.query('SELECT count FROM site_visits WHERE id = 1');
+    res.json({ count: Number(rows[0]?.count || 0) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not load visitor count' });
+  }
+});
+
+app.post('/api/visits', async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      'UPDATE site_visits SET count = count + 1 WHERE id = 1 RETURNING count'
+    );
+    res.json({ count: Number(rows[0].count) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not record visit' });
+  }
+});
+
 app.patch('/api/auth/me', auth.requireAuth, async (req, res) => {
   try {
     const user = await auth.updateOwnName(req.user.id, req.body?.name);
