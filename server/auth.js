@@ -316,6 +316,12 @@ export async function updateOwnName(userId, name) {
   if (!trimmed) throw new Error('Name cannot be empty');
   const { rows } = await db.query('UPDATE users SET name = $1 WHERE id = $2 RETURNING *', [trimmed, userId]);
   if (!rows[0]) throw new Error('User not found');
+  // subjects.staff_name is a denormalized snapshot taken when the
+  // subject was created (kept so listings don't need a join for the
+  // common case) -- without this, a staff member renaming themselves
+  // would still show their old name everywhere a subject displays who
+  // teaches it, including the public "Find Educators" page.
+  await db.query('UPDATE subjects SET staff_name = $1 WHERE staff_id = $2', [trimmed, userId]);
   return toPublicUser(rows[0]);
 }
 

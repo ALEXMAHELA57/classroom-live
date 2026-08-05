@@ -226,6 +226,16 @@ export async function initSchema() {
     UPDATE site_visits SET count = GREATEST(count, 513) WHERE id = 1;
   `);
 
+  // subjects.staff_name is a denormalized snapshot; updateOwnName (see
+  // auth.js) keeps it in sync going forward, but this corrects any
+  // subject rows that already went stale from a name change made
+  // before that sync existed. Cheap and safe to run on every boot.
+  await pool.query(`
+    UPDATE subjects s SET staff_name = u.name
+    FROM users u
+    WHERE u.id = s.staff_id AND s.staff_name IS DISTINCT FROM u.name;
+  `);
+
   // Columns added after a table already existed in earlier versions of
   // this app — CREATE TABLE IF NOT EXISTS above is a no-op once the table
   // is already there, so these need an explicit migration to reach
