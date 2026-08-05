@@ -477,6 +477,11 @@ export default function Classroom() {
     }
     rawStreamRef.current?.getTracks().forEach((t) => t.stop());
     rawStreamRef.current = null;
+    // Some browsers hold the camera hardware a beat longer if a video
+    // element still references the now-stopped stream — clearing this
+    // explicitly (rather than just stopping the tracks) helps the
+    // device actually free up before we ask for it again.
+    if (hiddenVideoRef.current) hiddenVideoRef.current.srcObject = null;
   }
 
   // Publishing through the zoom canvas has real CPU cost — drawing every
@@ -490,7 +495,21 @@ export default function Classroom() {
   // to 1x. This is the one function that knows how to tear down
   // whichever path was previously active and stand up whichever path
   // the new state calls for.
-  async function applyCameraState({ fm = facingMode, quality = videoQuality, zoom = digitalZoom } = {}) {
+  // Rapid zoom changes (dragging fast, or a quick double-tap on the
+  // reset button) can trigger a second applyCameraState call before the
+  // first has finished tearing down and re-acquiring the camera. Two
+  // overlapping teardown/acquire cycles racing each other was the other
+  // half of what caused video to get stuck until the whole room was
+  // torn down and rejoined -- this queue forces them to run one at a
+  // time, in order, instead.
+  const cameraOpQueueRef = useRef(Promise.resolve());
+  function applyCameraState(opts) {
+    const run = cameraOpQueueRef.current.then(() => applyCameraStateInner(opts));
+    cameraOpQueueRef.current = run.catch(() => {}); // don't let one failure jam the queue for good
+    return run;
+  }
+
+  async function applyCameraStateInner({ fm = facingMode, quality = videoQuality, zoom = digitalZoom } = {}) {
     const room = roomRef.current;
     if (!room) return;
 
@@ -502,6 +521,15 @@ export default function Classroom() {
       publishedCanvasTrackRef.current = null;
     }
     await room.localParticipant.setCameraEnabled(false);
+
+    // Stopping a camera stream and immediately requesting a new one for
+    // the same physical device is a known source of flaky/failed
+    // getUserMedia calls — many webcams (Windows especially) don't
+    // release the hardware handle instantly, so re-acquiring in the
+    // same tick can silently fail or hang, leaving no video published
+    // at all until the whole room connection is torn down and rebuilt.
+    // A brief settle delay here is cheap insurance against that.
+    await new Promise((resolve) => setTimeout(resolve, 250));
 
     const preset = VIDEO_QUALITY_PRESETS[quality];
 
