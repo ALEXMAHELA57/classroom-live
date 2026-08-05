@@ -1218,7 +1218,14 @@ select {
   border-top: 1px solid var(--line);
   text-align: center;
 }
-.home-visit-count { margin-bottom: 6px; }
+.home-visit-count {
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.home-visit-icon { width: 16px; height: 16px; flex-shrink: 0; color: var(--chalkboard); }
 .home-footer a { color: var(--chalkboard); }
 
 @media (max-width: 720px) {

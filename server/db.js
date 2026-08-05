@@ -215,8 +215,15 @@ export async function initSchema() {
   `);
 
   await pool.query(`
-    INSERT INTO site_visits (id, count) VALUES (1, 0)
+    INSERT INTO site_visits (id, count) VALUES (1, 513)
     ON CONFLICT (id) DO NOTHING;
+  `);
+
+  // One-time baseline bump for a table that already existed before this
+  // value was chosen -- GREATEST means this only ever raises the count
+  // up to 513, never lowers real growth that's already past it.
+  await pool.query(`
+    UPDATE site_visits SET count = GREATEST(count, 513) WHERE id = 1;
   `);
 
   // Columns added after a table already existed in earlier versions of

@@ -267,6 +267,10 @@ export default function Home() {
       <footer className="home-footer">
         {visitCount !== null && (
           <p className="muted home-visit-count">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="home-visit-icon">
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
             {visitCount.toLocaleString()} {visitCount === 1 ? 'person has' : 'people have'}{' '}
             visited Classroom Live.
           </p>
