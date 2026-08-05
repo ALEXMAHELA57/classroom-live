@@ -181,6 +181,7 @@ export default function Classroom() {
   const zoomAnimRef = useRef(null);
   const zoomLevelRef = useRef(1);
   const publishedCanvasTrackRef = useRef(null);
+  const publishedRawTrackRef = useRef(null);
   const selfRecordChunksRef = useRef([]);
   // Tracks in-flight "grace period" removals — see scheduleRemoveTile below.
   const pendingRemovalsRef = useRef(new Map());
@@ -512,26 +513,67 @@ export default function Classroom() {
   async function applyCameraStateInner({ fm = facingMode, quality = videoQuality, zoom = digitalZoom } = {}) {
     const room = roomRef.current;
     if (!room) return;
+    const preset = VIDEO_QUALITY_PRESETS[quality];
 
-    // Tear down both paths unconditionally — simpler and more reliable
-    // than tracking which one was previously active.
-    stopRawCapture();
+    // Fast path: going back to native (zoom <= 1) while we already have
+    // a live raw camera stream open for the same facing mode (i.e. we
+    // were just zoomed in). Reuse that stream's track directly instead
+    // of stopping it and asking for a brand new one — this is the fix
+    // for the camera coming back completely blank after a zoom reset.
+    // Stopping a camera stream and immediately requesting a fresh one
+    // for the same physical device is a known source of failed
+    // getUserMedia calls (many webcams, Windows especially, don't
+    // release the hardware handle fast enough for a same-tick second
+    // acquisition), and a settle delay alone wasn't reliable enough —
+    // not reacquiring at all sidesteps the race completely.
+    if (zoom <= 1 && rawStreamRef.current && fm === facingMode && quality === videoQuality) {
+      if (zoomAnimRef.current) {
+        cancelAnimationFrame(zoomAnimRef.current);
+        zoomAnimRef.current = null;
+      }
+      if (publishedCanvasTrackRef.current) {
+        await room.localParticipant.unpublishTrack(publishedCanvasTrackRef.current, true);
+        publishedCanvasTrackRef.current = null;
+      }
+      const rawTrack = rawStreamRef.current.getVideoTracks()[0];
+      if (rawTrack && rawTrack.readyState === 'live') {
+        await room.localParticipant.publishTrack(rawTrack, {
+          source: Track.Source.Camera,
+          name: 'camera',
+          videoEncoding: preset.encoding,
+        });
+        publishedRawTrackRef.current = rawTrack;
+        if (hiddenVideoRef.current) hiddenVideoRef.current.srcObject = null;
+        return;
+      }
+      // Track died underneath us for some reason — fall through to the
+      // full teardown-and-reacquire path below as a safety net.
+    }
+
+    // Full teardown of every path (canvas, directly-published raw
+    // track, and LiveKit-managed native track) — simpler and more
+    // reliable than tracking which one was previously active for the
+    // cases the fast path above doesn't cover. Unpublish BEFORE
+    // stopping the underlying hardware stream, not after — stopping a
+    // track that's still attached to an active publication skips a
+    // clean unpublish and can leave the other side hanging briefly.
     if (publishedCanvasTrackRef.current) {
       await room.localParticipant.unpublishTrack(publishedCanvasTrackRef.current, true);
       publishedCanvasTrackRef.current = null;
     }
+    if (publishedRawTrackRef.current) {
+      await room.localParticipant.unpublishTrack(publishedRawTrackRef.current, true);
+      publishedRawTrackRef.current = null;
+    }
+    stopRawCapture();
     await room.localParticipant.setCameraEnabled(false);
 
     // Stopping a camera stream and immediately requesting a new one for
     // the same physical device is a known source of flaky/failed
-    // getUserMedia calls — many webcams (Windows especially) don't
-    // release the hardware handle instantly, so re-acquiring in the
-    // same tick can silently fail or hang, leaving no video published
-    // at all until the whole room connection is torn down and rebuilt.
-    // A brief settle delay here is cheap insurance against that.
+    // getUserMedia calls — a brief settle delay here is cheap insurance
+    // for the remaining cases that do need a fresh acquisition (first
+    // turn-on, quality change, facing change).
     await new Promise((resolve) => setTimeout(resolve, 250));
-
-    const preset = VIDEO_QUALITY_PRESETS[quality];
 
     if (zoom > 1) {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -575,6 +617,15 @@ export default function Classroom() {
     if (publishedCanvasTrackRef.current) {
       await room?.localParticipant.unpublishTrack(publishedCanvasTrackRef.current, true);
       publishedCanvasTrackRef.current = null;
+    }
+    publishedRawTrackRef.current = null;
+    // Look up whatever's actually currently published, rather than
+    // relying only on our own ref -- a camera flip in between can swap
+    // the underlying track on the same publication, which would make a
+    // stored raw-track reference stale.
+    const currentPublication = room?.localParticipant.getTrackPublication(Track.Source.Camera);
+    if (currentPublication?.track) {
+      await room.localParticipant.unpublishTrack(currentPublication.track, true);
     }
     stopRawCapture();
     await room?.localParticipant.setCameraEnabled(false);
