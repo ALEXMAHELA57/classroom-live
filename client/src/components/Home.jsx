@@ -6,18 +6,42 @@ const FEATURES = [
   {
     title: 'For Every Learner',
     desc: "Whether you're in primary school, secondary school, university, or beyond, you belong here.",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 10 12 5 2 10l10 5 10-5Z" />
+        <path d="M6 12v5c0 1.5 2.5 3 6 3s6-1.5 6-3v-5" />
+      </svg>
+    ),
   },
   {
     title: 'Find the Right Educator',
     desc: 'Connect with qualified educators who are passionate about teaching and your success.',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+      </svg>
+    ),
   },
   {
     title: 'Live Interactive Classes',
     desc: 'Join live sessions, ask questions, collaborate, and learn in real time.',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m23 7-7 5 7 5V7Z" />
+        <rect x="1" y="5" width="15" height="14" rx="2" />
+      </svg>
+    ),
   },
   {
     title: 'Achieve Your Goals',
     desc: 'Get the knowledge and guidance you need to succeed in school, your career, and life.',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 7 13.5 15.5 8.5 10.5 2 17" />
+        <path d="M16 7h6v6" />
+      </svg>
+    ),
   },
 ];
 
@@ -132,31 +156,11 @@ export default function Home() {
         <div className="home-feature-grid">
           {FEATURES.map((f) => (
             <div className="home-feature-card" key={f.title}>
+              <div className="home-feature-icon">{f.icon}</div>
               <h3 className="home-feature-title">{f.title}</h3>
               <p className="home-feature-desc">{f.desc}</p>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section className="home-stats-bar">
-        <div className="home-stats-inner">
-          <div className="home-stat">
-            <span className="home-stat-number">12+</span>
-            <span className="home-stat-label">Active Educators</span>
-          </div>
-          <div className="home-stat">
-            <span className="home-stat-number">167+</span>
-            <span className="home-stat-label">Happy Students</span>
-          </div>
-          <div className="home-stat">
-            <span className="home-stat-number">{classesLast30Days !== null ? `${classesLast30Days}+` : '\u2014'}</span>
-            <span className="home-stat-label">Live Classes Every Month</span>
-          </div>
-          <div className="home-stat">
-            <span className="home-stat-number">4.1/5</span>
-            <span className="home-stat-label">Average Rating</span>
-          </div>
         </div>
       </section>
 
@@ -237,6 +241,27 @@ export default function Home() {
           <strong>Flexible. Convenient. Effective.</strong> Study where you are. Succeed
           everywhere.
         </p>
+      </section>
+
+      <section className="home-stats-bar">
+        <div className="home-stats-inner">
+          <div className="home-stat">
+            <span className="home-stat-number">12+</span>
+            <span className="home-stat-label">Active Educators</span>
+          </div>
+          <div className="home-stat">
+            <span className="home-stat-number">167+</span>
+            <span className="home-stat-label">Happy Students</span>
+          </div>
+          <div className="home-stat">
+            <span className="home-stat-number">{classesLast30Days !== null ? `${classesLast30Days}+` : '\u2014'}</span>
+            <span className="home-stat-label">Live Classes Every Month</span>
+          </div>
+          <div className="home-stat">
+            <span className="home-stat-number">4.1/5</span>
+            <span className="home-stat-label">Average Rating</span>
+          </div>
+        </div>
       </section>
 
       <footer className="home-footer">
