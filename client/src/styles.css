@@ -1154,7 +1154,8 @@ select {
   gap: 1.5rem;
   text-align: center;
 }
-.home-stat { display: flex; flex-direction: column; gap: 4px; }
+.home-stat { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.home-stat-icon { width: 26px; height: 26px; color: #fff; opacity: 0.9; margin-bottom: 2px; }
 .home-stat-number { font-family: 'Fraunces', Georgia, serif; font-weight: 700; font-size: 1.9rem; color: #fff; }
 .home-stat-label { font-size: 0.82rem; color: rgba(255, 255, 255, 0.8); }
 
