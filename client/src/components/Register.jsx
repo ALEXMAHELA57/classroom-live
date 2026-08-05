@@ -60,23 +60,6 @@ export default function Register() {
         <div className="auth-mark">CL</div>
         <h1>Create an account</h1>
         <p className="muted">A few details and you're set.</p>
-        <label>I am a</label>
-        <div className="role-toggle">
-          <button
-            type="button"
-            className={form.role === 'student' ? 'active' : ''}
-            onClick={() => update('role', 'student')}
-          >
-            Student
-          </button>
-          <button
-            type="button"
-            className={form.role === 'staff' ? 'active' : ''}
-            onClick={() => update('role', 'staff')}
-          >
-            Staff / teacher
-          </button>
-        </div>
         <div className="google-button-wrap">
           <GoogleButton text="signup_with" onCredential={handleGoogleCredential} />
         </div>

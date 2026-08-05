@@ -62,7 +62,7 @@ async function getUserByEmail(email) {
 
 // Self-registration: always lands as 'pending' — even a staff signup needs
 // a superadmin to approve it before they can log in.
-export async function registerUser({ name, email, password, role }) {
+export async function registerUser({ name, email, password }) {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   if (!name || !normalizedEmail || !password) {
     throw new Error('name, email, and password are required');
@@ -73,13 +73,15 @@ export async function registerUser({ name, email, password, role }) {
   if (await getUserByEmail(normalizedEmail)) {
     throw new Error('An account with that email already exists');
   }
-  const safeRole = role === 'staff' ? 'staff' : 'student'; // self-signup can never grant superadmin
+  // Self-signup can only ever create a student account — staff accounts
+  // are created by a superadmin (see createStaffAccount / the admin
+  // panel), never through the public registration form or its API.
   const row = {
     id: nanoid(10),
     name,
     email: normalizedEmail,
     passwordHash: bcrypt.hashSync(password, 10),
-    role: safeRole,
+    role: 'student',
     status: 'pending',
     createdAt: Date.now(),
   };
@@ -163,12 +165,13 @@ export async function loginWithGoogle(credential) {
 // Registers a brand-new account from a verified Google identity instead
 // of a password. Still lands as 'pending', same as normal self-signup —
 // Google verifying the email doesn't skip admin approval.
-export async function registerWithGoogle(credential, role) {
+export async function registerWithGoogle(credential) {
   const { email, name } = await verifyGoogleCredential(credential);
   if (await getUserByEmail(email)) {
     throw new Error('An account with that email already exists — sign in instead');
   }
-  const safeRole = role === 'staff' ? 'staff' : 'student'; // self-signup can never grant superadmin
+  // Same rule as email/password signup: self-registration is always a
+  // student account, never staff or superadmin.
   const row = {
     id: nanoid(10),
     name,
@@ -178,7 +181,7 @@ export async function registerWithGoogle(credential, role) {
     // stays impossible for it — Google is the only way in, which is
     // correct since they never set a password.
     passwordHash: bcrypt.hashSync(nanoid(32), 10),
-    role: safeRole,
+    role: 'student',
     status: 'pending',
     createdAt: Date.now(),
   };

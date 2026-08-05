@@ -159,8 +159,8 @@ app.post('/api/auth/google-login', async (req, res) => {
 
 app.post('/api/auth/google-register', async (req, res) => {
   try {
-    const { credential, role } = req.body || {};
-    const user = await auth.registerWithGoogle(credential, role);
+    const { credential } = req.body || {};
+    const user = await auth.registerWithGoogle(credential);
     res.json({ user, message: 'Account created. An admin must approve it before you can log in.' });
   } catch (err) {
     res.status(400).json({ error: err.message });
