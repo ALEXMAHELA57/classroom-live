@@ -358,6 +358,13 @@ button.ghost {
   accent-color: var(--chalk-yellow);
 }
 .zoom-value { font-size: 0.75rem; color: #fff; min-width: 28px; }
+.zoom-reset {
+  padding: 3px 9px;
+  font-size: 0.7rem;
+  border-radius: 999px;
+  background: var(--chalk-yellow);
+  color: var(--paper);
+}
 
 .audio-unlock-banner {
   position: absolute;

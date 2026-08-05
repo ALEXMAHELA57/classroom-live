@@ -865,6 +865,16 @@ export default function Classroom() {
                     onChange={(e) => handleZoomChange(sliderPositionToZoom(Number(e.target.value)))}
                   />
                   <span className="zoom-value">{digitalZoom.toFixed(1)}x</span>
+                  {digitalZoom > 1 && (
+                    <button
+                      type="button"
+                      className="zoom-reset"
+                      onClick={() => handleZoomChange(1)}
+                      title="Reset zoom"
+                    >
+                      Reset
+                    </button>
+                  )}
                 </div>
               )}
               {camOn && user.role !== 'student' && (
