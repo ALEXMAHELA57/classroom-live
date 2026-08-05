@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getVisitCount, recordVisit, listPublicEducators } from '../lib/api.js';
+import { getVisitCount, recordVisit, listPublicEducators, getPublicStats } from '../lib/api.js';
 
 const FEATURES = [
   {
@@ -39,6 +39,7 @@ export default function Home() {
   const [visitCount, setVisitCount] = useState(null);
   const [educators, setEducators] = useState(null);
   const [educatorsError, setEducatorsError] = useState('');
+  const [classesLast30Days, setClassesLast30Days] = useState(null);
 
   useEffect(() => {
     getVisitCount()
@@ -57,6 +58,10 @@ export default function Home() {
     listPublicEducators()
       .then((d) => setEducators(d.educators))
       .catch((err) => setEducatorsError(err.message));
+
+    getPublicStats()
+      .then((d) => setClassesLast30Days(d.classesLast30Days))
+      .catch(() => {});
   }, []);
 
   return (
@@ -131,6 +136,27 @@ export default function Home() {
               <p className="home-feature-desc">{f.desc}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="home-stats-bar">
+        <div className="home-stats-inner">
+          <div className="home-stat">
+            <span className="home-stat-number">12+</span>
+            <span className="home-stat-label">Active Educators</span>
+          </div>
+          <div className="home-stat">
+            <span className="home-stat-number">167+</span>
+            <span className="home-stat-label">Happy Students</span>
+          </div>
+          <div className="home-stat">
+            <span className="home-stat-number">{classesLast30Days !== null ? `${classesLast30Days}+` : '\u2014'}</span>
+            <span className="home-stat-label">Live Classes Every Month</span>
+          </div>
+          <div className="home-stat">
+            <span className="home-stat-number">4.1/5</span>
+            <span className="home-stat-label">Average Rating</span>
+          </div>
         </div>
       </section>
 

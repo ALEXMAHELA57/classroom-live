@@ -222,6 +222,22 @@ app.post('/api/visits', async (req, res) => {
   }
 });
 
+// Real, computed count for the homepage stats bar -- rooms actually
+// created in the last 30 days, a rolling window rather than a fixed
+// calendar month so it doesn't reset to zero on the 1st.
+app.get('/api/public/stats', async (req, res) => {
+  try {
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const { rows } = await db.query('SELECT COUNT(*) AS n FROM rooms WHERE created_at >= $1', [
+      thirtyDaysAgo,
+    ]);
+    res.json({ classesLast30Days: Number(rows[0].n) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not load stats' });
+  }
+});
+
 app.patch('/api/auth/me', auth.requireAuth, async (req, res) => {
   try {
     const user = await auth.updateOwnName(req.user.id, req.body?.name);

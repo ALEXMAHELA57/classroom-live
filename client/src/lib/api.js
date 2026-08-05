@@ -437,4 +437,9 @@ export async function listPublicEducators() {
   return parseOrThrow(res);
 }
 
+export async function getPublicStats() {
+  const res = await fetch(`${API_BASE}/api/public/stats`);
+  return parseOrThrow(res);
+}
+
 export { API_BASE };
