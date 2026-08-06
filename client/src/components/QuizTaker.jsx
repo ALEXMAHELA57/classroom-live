@@ -94,34 +94,58 @@ function QuestionCard({ index, question, value, onChange, result, submittedAnswe
       <p><strong>{question.prompt}</strong></p>
 
       {question.type === 'mcq' && (
-        <div className="quiz-options">
+        <div className="quiz-options" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {question.options?.map((opt) => (
-            <label key={opt} className="quiz-option">
+            <label
+              key={opt}
+              className="quiz-option"
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                gap: 8,
+                width: '100%',
+                textAlign: 'left',
+              }}
+            >
               <input
                 type="radio"
                 name={question.id}
                 checked={(disabled ? submittedAnswer : value) === opt}
                 onChange={() => onChange(opt)}
                 disabled={disabled}
+                style={{ flexShrink: 0, marginTop: 3 }}
               />
-              {opt}
+              <span>{opt}</span>
             </label>
           ))}
         </div>
       )}
 
       {question.type === 'true_false' && (
-        <div className="quiz-options">
+        <div className="quiz-options" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {['true', 'false'].map((opt) => (
-            <label key={opt} className="quiz-option">
+            <label
+              key={opt}
+              className="quiz-option"
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                gap: 8,
+                width: '100%',
+                textAlign: 'left',
+              }}
+            >
               <input
                 type="radio"
                 name={question.id}
                 checked={(disabled ? submittedAnswer : value) === opt}
                 onChange={() => onChange(opt)}
                 disabled={disabled}
+                style={{ flexShrink: 0, marginTop: 3 }}
               />
-              {opt === 'true' ? 'True' : 'False'}
+              <span>{opt === 'true' ? 'True' : 'False'}</span>
             </label>
           ))}
         </div>
