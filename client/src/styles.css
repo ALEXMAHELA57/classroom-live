@@ -84,6 +84,25 @@ input {
 }
 input:focus { outline: 2px solid var(--chalk-yellow); outline-offset: 1px; }
 
+/* The generic `input` rule above is meant for text fields — it has no
+   type selector, so it was also applying width:100%, padding, a border,
+   and margin-bottom to every radio and checkbox input in the app, which
+   is what was actually breaking the quiz option layout (the radio was
+   stretching to fill the entire row, shoving the label text far to the
+   right/onto its own line) — not a flexbox issue in the container at
+   all, which is why fixing .quiz-option's layout properties alone never
+   worked. This resets radios/checkboxes back to their normal native
+   sizing everywhere in the app, not just quizzes. */
+input[type='radio'],
+input[type='checkbox'] {
+  width: auto;
+  padding: 0;
+  margin-bottom: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+}
+
 button {
   font-family: 'Inter', sans-serif;
   font-weight: 600;
