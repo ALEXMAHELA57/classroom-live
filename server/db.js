@@ -110,6 +110,17 @@ export async function initSchema() {
       PRIMARY KEY (subject_id, student_id)
     );
 
+    -- Co-teachers beyond the subject's original creator (subjects.staff_id
+    -- stays the "primary" teacher for backward compatibility with existing
+    -- queries/permission checks). A co-teacher gets the same management
+    -- rights as the primary teacher — see subjects.isSubjectTeacher.
+    CREATE TABLE IF NOT EXISTS subject_teachers (
+      subject_id TEXT NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+      staff_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      added_at BIGINT NOT NULL,
+      PRIMARY KEY (subject_id, staff_id)
+    );
+
     CREATE TABLE IF NOT EXISTS room_recordings (
       id TEXT PRIMARY KEY,
       room_id TEXT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,

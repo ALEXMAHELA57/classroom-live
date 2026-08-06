@@ -6,6 +6,9 @@ import {
   listSubjects,
   createSubject,
   deleteSubject,
+  addSubjectTeacher,
+  removeSubjectTeacher,
+  listStaff,
   listStudents,
   enrollStudent,
   unenrollStudent,
@@ -140,7 +143,11 @@ function StudentSubjectCard({ subject }) {
       <h3 onClick={() => setOpen((o) => !o)} className="collapsible">
         {subject.name} {open ? '▾' : '▸'}
       </h3>
-      <p className="muted">Taught by {subject.staffName}</p>
+      <p className="muted">
+        Taught by {subject.staffName}
+        {subject.coTeachers.length > 0 &&
+          ` and ${subject.coTeachers.map((t) => t.name).join(', ')}`}
+      </p>
       {open && (
         <>
           {subject.hasSyllabus ? (
@@ -191,6 +198,9 @@ function StudentSubjectCard({ subject }) {
 
 function SubjectManageCard({ subject, onChanged }) {
   const [students, setStudents] = useState([]);
+  const [staffList, setStaffList] = useState([]);
+  const [selectedTeacher, setSelectedTeacher] = useState('');
+  const [teacherError, setTeacherError] = useState('');
   const [selected, setSelected] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -212,6 +222,9 @@ function SubjectManageCard({ subject, onChanged }) {
       listStudents()
         .then((data) => setStudents(data.students))
         .catch((err) => setError(err.message));
+      listStaff()
+        .then((data) => setStaffList(data.staff))
+        .catch(() => {});
       refreshQuizzes();
       refreshAssignments();
       refreshRooms();
@@ -238,6 +251,10 @@ function SubjectManageCard({ subject, onChanged }) {
   }
 
   const enrolledIds = new Set(subject.enrolledStudentIds);
+  const coTeacherIds = new Set(subject.coTeachers.map((t) => t.id));
+  const availableTeachers = staffList.filter(
+    (s) => s.id !== subject.staffId && !coTeacherIds.has(s.id)
+  );
   const availableStudents = students.filter((s) => !enrolledIds.has(s.id));
 
   async function enroll() {
@@ -257,6 +274,28 @@ function SubjectManageCard({ subject, onChanged }) {
       onChanged();
     } catch (err) {
       setError(err.message);
+    }
+  }
+
+  async function addTeacher() {
+    if (!selectedTeacher) return;
+    setTeacherError('');
+    try {
+      await addSubjectTeacher(subject.id, selectedTeacher);
+      setSelectedTeacher('');
+      onChanged();
+    } catch (err) {
+      setTeacherError(err.message);
+    }
+  }
+
+  async function removeTeacher(staffId) {
+    setTeacherError('');
+    try {
+      await removeSubjectTeacher(subject.id, staffId);
+      onChanged();
+    } catch (err) {
+      setTeacherError(err.message);
     }
   }
 
@@ -479,6 +518,41 @@ function SubjectManageCard({ subject, onChanged }) {
                 {savingSyllabusText ? 'Saving…' : 'Save syllabus text'}
               </button>
             </form>
+          </div>
+
+          <div className="admin-section">
+            <p className="admin-section-label">Teachers</p>
+            <p className="admin-section-hint muted" style={{ fontSize: '0.8rem' }}>
+              {subject.staffName} created this subject. Co-teachers get the same management
+              rights &mdash; roster, quizzes, assignments, syllabus.
+            </p>
+            {teacherError && <p className="error">{teacherError}</p>}
+            <div className="admin-create-form">
+              <select value={selectedTeacher} onChange={(e) => setSelectedTeacher(e.target.value)}>
+                <option value="">Select a staff member&hellip;</option>
+                {availableTeachers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.email})
+                  </option>
+                ))}
+              </select>
+              <button onClick={addTeacher} disabled={!selectedTeacher}>
+                Add co-teacher
+              </button>
+            </div>
+            <ul className="roster-list roster-mod" style={{ marginTop: 10 }}>
+              <li>
+                <span>{subject.staffName} &middot; <span className="muted">Primary teacher</span></span>
+              </li>
+              {subject.coTeachers.map((t) => (
+                <li key={t.id}>
+                  <span>{t.name}</span>
+                  <button className="ghost" onClick={() => removeTeacher(t.id)}>
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
 
           <div className="admin-section">

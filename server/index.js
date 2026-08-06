@@ -19,6 +19,7 @@ import * as assignments from './assignments.js';
 import * as billing from './billing.js';
 import * as selfRecordings from './selfRecordings.js';
 import * as s3 from './s3.js';
+import * as emailer from './email.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
@@ -435,10 +436,12 @@ app.post('/api/rooms', auth.requireAuth, auth.requireRole('staff', 'superadmin')
   const { durationMinutes, subjectId } = req.body || {};
 
   let resolvedSubjectId = null;
+  let resolvedSubjectName = null;
   if (subjectId) {
     try {
       const subject = await subjects.getOwnedSubject(subjectId, req.user);
       resolvedSubjectId = subject.id;
+      resolvedSubjectName = subject.name;
     } catch (err) {
       return res.status(400).json({ error: err.message });
     }
@@ -458,7 +461,28 @@ app.post('/api/rooms', auth.requireAuth, auth.requireRole('staff', 'superadmin')
     scheduleTimeLimit(room.id, endsAt);
     scheduleNoShowCheck(room.id);
 
-    res.json({ roomId: room.id, inviteLink: `${PRIMARY_CLIENT_ORIGIN}/join/${room.id}`, endsAt });
+    const inviteLink = `${PRIMARY_CLIENT_ORIGIN}/join/${room.id}`;
+
+    // Best-effort: a notification failure should never stop a teacher
+    // from starting class, so this isn't awaited into the response path.
+    if (emailer.isEmailConfigured()) {
+      auth
+        .listUsers()
+        .then((users) => {
+          const adminEmails = users
+            .filter((u) => u.role === 'superadmin' && u.status === 'approved')
+            .map((u) => u.email);
+          if (adminEmails.length === 0) return;
+          return emailer.sendSessionStartEmail(adminEmails, {
+            hostName: req.user.name,
+            subjectName: resolvedSubjectName,
+            joinUrl: inviteLink,
+          });
+        })
+        .catch((err) => console.error('[email] session-start notification failed', err));
+    }
+
+    res.json({ roomId: room.id, inviteLink, endsAt });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Could not create room' });
@@ -621,6 +645,34 @@ app.delete('/api/subjects/:subjectId', auth.requireAuth, auth.requireRole('staff
     res.status(400).json({ error: err.message });
   }
 });
+
+app.post(
+  '/api/subjects/:subjectId/teachers',
+  auth.requireAuth,
+  auth.requireRole('staff', 'superadmin'),
+  async (req, res) => {
+    try {
+      const subject = await subjects.addCoTeacher(req.params.subjectId, req.body?.staffId, req.user);
+      res.json({ subject });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+);
+
+app.delete(
+  '/api/subjects/:subjectId/teachers/:staffId',
+  auth.requireAuth,
+  auth.requireRole('staff', 'superadmin'),
+  async (req, res) => {
+    try {
+      const subject = await subjects.removeCoTeacher(req.params.subjectId, req.params.staffId, req.user);
+      res.json({ subject });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+);
 
 app.get('/api/students', auth.requireAuth, auth.requireRole('staff', 'superadmin'), async (req, res) => {
   try {

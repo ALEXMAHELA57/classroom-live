@@ -71,6 +71,23 @@ export async function deleteSubject(subjectId) {
   return parseOrThrow(res);
 }
 
+export async function addSubjectTeacher(subjectId, staffId) {
+  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/teachers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ staffId }),
+  });
+  return parseOrThrow(res);
+}
+
+export async function removeSubjectTeacher(subjectId, staffId) {
+  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/teachers/${staffId}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  return parseOrThrow(res);
+}
+
 export async function listStudents() {
   const res = await fetch(`${API_BASE}/api/students`, { headers: authHeaders() });
   return parseOrThrow(res);

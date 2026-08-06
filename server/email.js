@@ -28,3 +28,31 @@ export async function sendPasswordResetEmail(toEmail, resetUrl) {
   });
   if (error) throw new Error(error.message || 'Failed to send email');
 }
+
+// Notifies every superadmin when a live class starts. Best-effort by
+// design — the caller doesn't await failure here in a way that blocks
+// the class from starting, since a notification problem shouldn't stop
+// a teacher from teaching. Sends one email per recipient rather than a
+// single multi-to email, so each admin's inbox shows it as addressed
+// to them individually.
+export async function sendSessionStartEmail(toEmails, { hostName, subjectName, joinUrl }) {
+  if (!resend) throw new Error('Email sending is not configured on this server');
+  const subject = subjectName ? `${hostName} started a ${subjectName} class` : `${hostName} started a class`;
+  const results = await Promise.allSettled(
+    toEmails.map((toEmail) =>
+      resend.emails.send({
+        from: EMAIL_FROM,
+        to: toEmail,
+        subject,
+        html: `
+          <p>${hostName} just started a live class${subjectName ? ` for <strong>${subjectName}</strong>` : ''} on Classroom Live.</p>
+          <p><a href="${joinUrl}">Join or monitor the class</a></p>
+        `,
+      })
+    )
+  );
+  const failures = results.filter((r) => r.status === 'rejected' || r.value?.error);
+  if (failures.length === toEmails.length && toEmails.length > 0) {
+    throw new Error('Could not send any session-start notification emails');
+  }
+}

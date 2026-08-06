@@ -1,12 +1,13 @@
 import { nanoid } from 'nanoid';
 import * as db from './db.js';
 
-function toPublicSubject(row, enrolledStudentIds) {
+function toPublicSubject(row, enrolledStudentIds, coTeachers = []) {
   return {
     id: row.id,
     name: row.name,
     staffId: row.staff_id,
     staffName: row.staff_name,
+    coTeachers,
     createdAt: Number(row.created_at),
     enrolledStudentIds,
     hasSyllabus: Boolean(row.syllabus_filename) || Boolean(row.syllabus_text),
@@ -19,6 +20,16 @@ async function getEnrolledIds(subjectId) {
     [subjectId]
   );
   return rows.map((r) => r.student_id);
+}
+
+async function getCoTeachers(subjectId) {
+  const { rows } = await db.query(
+    `SELECT u.id, u.name FROM subject_teachers st
+     JOIN users u ON u.id = st.staff_id
+     WHERE st.subject_id = $1 ORDER BY st.added_at`,
+    [subjectId]
+  );
+  return rows;
 }
 
 async function getRawSubject(id) {
@@ -44,18 +55,22 @@ export async function createSubject({ name, staffId, staffName }) {
 export async function getSubject(id) {
   const raw = await getRawSubject(id);
   if (!raw) return null;
-  return toPublicSubject(raw, await getEnrolledIds(id));
+  return toPublicSubject(raw, await getEnrolledIds(id), await getCoTeachers(id));
 }
 
 // Subjects a given user can see: staff/superadmin see subjects they own
-// (or all, for superadmin); students see only subjects they're enrolled in.
+// or co-teach (or all, for superadmin); students see only subjects
+// they're enrolled in.
 export async function listSubjectsFor(user) {
   let rows;
   if (user.role === 'superadmin') {
     ({ rows } = await db.query('SELECT * FROM subjects ORDER BY created_at DESC'));
   } else if (user.role === 'staff') {
     ({ rows } = await db.query(
-      'SELECT * FROM subjects WHERE staff_id = $1 ORDER BY created_at DESC',
+      `SELECT DISTINCT s.* FROM subjects s
+       LEFT JOIN subject_teachers st ON st.subject_id = s.id
+       WHERE s.staff_id = $1 OR st.staff_id = $1
+       ORDER BY s.created_at DESC`,
       [user.id]
     ));
   } else {
@@ -69,7 +84,7 @@ export async function listSubjectsFor(user) {
   }
   const results = [];
   for (const row of rows) {
-    results.push(toPublicSubject(row, await getEnrolledIds(row.id)));
+    results.push(toPublicSubject(row, await getEnrolledIds(row.id), await getCoTeachers(row.id)));
   }
   return results;
 }
@@ -137,6 +152,10 @@ export async function getSyllabusForViewing(subjectId, user) {
   }
 
   let allowed = user.role === 'superadmin' || (user.role === 'staff' && raw.staff_id === user.id);
+  if (!allowed && user.role === 'staff') {
+    const coTeachers = await getCoTeachers(subjectId);
+    allowed = coTeachers.some((t) => t.id === user.id);
+  }
   if (!allowed && user.role === 'student') {
     const enrolledIds = await getEnrolledIds(subjectId);
     allowed = enrolledIds.includes(user.id);
@@ -154,15 +173,52 @@ export async function getSyllabusForViewing(subjectId, user) {
   };
 }
 
+// True if this user is the subject's original creator OR a co-teacher —
+// either way, they get full management rights over it.
+function isSubjectTeacher(subject, userId) {
+  return subject.staffId === userId || subject.coTeachers.some((t) => t.id === userId);
+}
+
 // Ownership check used by staff-facing management endpoints (enroll,
 // unenroll, upload syllabus). Returns the public subject shape, or throws.
 export async function getOwnedSubject(subjectId, user) {
   const subject = await getSubject(subjectId);
   if (!subject) throw new Error('Subject not found');
-  if (user.role !== 'superadmin' && subject.staffId !== user.id) {
+  if (user.role !== 'superadmin' && !isSubjectTeacher(subject, user.id)) {
     throw new Error("Only this subject's teacher can manage it");
   }
   return subject;
+}
+
+// Adds a co-teacher. Only a superadmin or the subject's original creator
+// can do this — a co-teacher can't yet add further co-teachers of their
+// own, keeping one clear point of accountability per subject.
+export async function addCoTeacher(subjectId, staffId, actingUser) {
+  const raw = await getRawSubject(subjectId);
+  if (!raw) throw new Error('Subject not found');
+  if (actingUser.role !== 'superadmin' && raw.staff_id !== actingUser.id) {
+    throw new Error("Only this subject's teacher or an admin can add co-teachers");
+  }
+  if (staffId === raw.staff_id) throw new Error('That person already teaches this subject');
+  await db.query(
+    `INSERT INTO subject_teachers (subject_id, staff_id, added_at)
+     VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+    [subjectId, staffId, Date.now()]
+  );
+  return getSubject(subjectId);
+}
+
+export async function removeCoTeacher(subjectId, staffId, actingUser) {
+  const raw = await getRawSubject(subjectId);
+  if (!raw) throw new Error('Subject not found');
+  if (actingUser.role !== 'superadmin' && raw.staff_id !== actingUser.id) {
+    throw new Error("Only this subject's teacher or an admin can remove co-teachers");
+  }
+  await db.query('DELETE FROM subject_teachers WHERE subject_id = $1 AND staff_id = $2', [
+    subjectId,
+    staffId,
+  ]);
+  return getSubject(subjectId);
 }
 
 // Deletes the subject entirely. Enrollments, quizzes, assignments, and
