@@ -1096,8 +1096,11 @@ app.get(
   auth.requireRole('staff', 'superadmin'),
   async (req, res) => {
     try {
-      await quizzes.getQuizForOwner(req.params.quizId, req.user); // ownership check
-      res.json({ submissions: await quizzes.listSubmissionsForQuiz(req.params.quizId) });
+      const quiz = await quizzes.getQuizForOwner(req.params.quizId, req.user); // ownership check
+      res.json({
+        questions: quiz.questions,
+        submissions: await quizzes.listSubmissionsForQuiz(req.params.quizId),
+      });
     } catch (err) {
       res.status(403).json({ error: err.message });
     }

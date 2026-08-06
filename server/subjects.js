@@ -175,8 +175,10 @@ export async function getSyllabusForViewing(subjectId, user) {
 }
 
 // True if this user is the subject's original creator OR a co-teacher —
-// either way, they get full management rights over it.
-function isSubjectTeacher(subject, userId) {
+// either way, they get full management rights over it. Exported for
+// reuse by quizzes.js and assignments.js, which each have their own
+// subject-ownership checks that need the same co-teacher awareness.
+export function isSubjectTeacher(subject, userId) {
   return subject.staffId === userId || subject.coTeachers.some((t) => t.id === userId);
 }
 

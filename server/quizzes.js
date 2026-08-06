@@ -228,7 +228,7 @@ export async function updateQuiz(quizId, user, questions) {
   const raw = await getRawQuiz(quizId);
   if (!raw) throw new Error('Quiz not found');
   const subject = await subjects.getSubject(raw.subject_id);
-  if (user.role !== 'superadmin' && subject.staffId !== user.id) {
+  if (user.role !== 'superadmin' && !subjects.isSubjectTeacher(subject, user.id)) {
     throw new Error("Only this subject's teacher can edit this");
   }
   validateQuestions(questions);
@@ -251,7 +251,7 @@ export async function publishQuiz(quizId, user) {
   const raw = await getRawQuiz(quizId);
   if (!raw) throw new Error('Quiz not found');
   const subject = await subjects.getSubject(raw.subject_id);
-  if (user.role !== 'superadmin' && subject.staffId !== user.id) {
+  if (user.role !== 'superadmin' && !subjects.isSubjectTeacher(subject, user.id)) {
     throw new Error("Only this subject's teacher can publish this");
   }
   await db.query("UPDATE quizzes SET status = 'published' WHERE id = $1", [quizId]);
@@ -264,7 +264,7 @@ export async function unpublishQuiz(quizId, user) {
   const raw = await getRawQuiz(quizId);
   if (!raw) throw new Error('Quiz not found');
   const subject = await subjects.getSubject(raw.subject_id);
-  if (user.role !== 'superadmin' && subject.staffId !== user.id) {
+  if (user.role !== 'superadmin' && !subjects.isSubjectTeacher(subject, user.id)) {
     throw new Error("Only this subject's teacher can unpublish this");
   }
   await db.query("UPDATE quizzes SET status = 'draft' WHERE id = $1", [quizId]);
@@ -277,7 +277,7 @@ export async function deleteQuiz(quizId, user) {
   const raw = await getRawQuiz(quizId);
   if (!raw) throw new Error('Quiz not found');
   const subject = await subjects.getSubject(raw.subject_id);
-  if (user.role !== 'superadmin' && subject.staffId !== user.id) {
+  if (user.role !== 'superadmin' && !subjects.isSubjectTeacher(subject, user.id)) {
     throw new Error("Only this subject's teacher can delete this");
   }
   await db.query('DELETE FROM quizzes WHERE id = $1', [quizId]);
@@ -336,7 +336,7 @@ export async function getQuizForOwner(quizId, user) {
   const raw = await getRawQuiz(quizId);
   if (!raw) throw new Error('Quiz not found');
   const subject = await subjects.getSubject(raw.subject_id);
-  if (user.role !== 'superadmin' && subject.staffId !== user.id) {
+  if (user.role !== 'superadmin' && !subjects.isSubjectTeacher(subject, user.id)) {
     throw new Error("Only this subject's teacher can view this");
   }
   return {
@@ -413,5 +413,7 @@ export async function listSubmissionsForQuiz(quizId) {
     studentName: r.student_name,
     score: Number(r.score),
     submittedAt: Number(r.submitted_at),
+    answers: r.answers,
+    perQuestion: r.per_question,
   }));
 }

@@ -608,6 +608,25 @@ select {
   font-size: 0.9rem;
 }
 .admin-table th { background: var(--paper); font-weight: 600; }
+
+.quiz-answer-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 4px;
+}
+.quiz-answer-row {
+  padding: 10px 14px;
+  border-left: 3px solid var(--line);
+  background: var(--paper);
+  border-radius: 6px;
+}
+.quiz-answer-row.quiz-answer-correct { border-left-color: var(--success); }
+.quiz-answer-row.quiz-answer-incorrect { border-left-color: var(--error); }
+.quiz-answer-prompt { font-weight: 600; margin: 0 0 6px; }
+.quiz-answer-given, .quiz-answer-correct-line, .quiz-answer-feedback { margin: 0 0 4px; font-size: 0.9rem; }
+.quiz-answer-score { margin: 6px 0 0; font-size: 0.78rem; }
+.quiz-answer-label { font-weight: 600; }
 .admin-actions { display: flex; gap: 6px; }
 .admin-actions button { font-size: 0.8rem; padding: 6px 10px; }
 .admin-reset-row {
