@@ -694,13 +694,26 @@ app.get('/api/students', auth.requireAuth, auth.requireRole('staff', 'superadmin
 // zero subjects created yet doesn't show up -- nothing to find.
 app.get('/api/public/educators', async (req, res) => {
   try {
+    // Combines primary teachers (subjects.staff_id) with co-teachers
+    // (subject_teachers) into one set of (educator, subject) pairs, then
+    // groups by educator. UNION (not UNION ALL) collapses the rare case
+    // where someone is both the primary teacher and a co-teacher.
     const { rows } = await db.query(`
-      SELECT s.staff_id, s.staff_name, array_agg(DISTINCT s.name ORDER BY s.name) AS subjects
-      FROM subjects s
-      JOIN users u ON u.id = s.staff_id
-      WHERE u.status = 'approved'
-      GROUP BY s.staff_id, s.staff_name
-      ORDER BY s.staff_name
+      SELECT staff_id, staff_name, array_agg(DISTINCT subject_name ORDER BY subject_name) AS subjects
+      FROM (
+        SELECT u.id AS staff_id, u.name AS staff_name, s.name AS subject_name
+        FROM subjects s
+        JOIN users u ON u.id = s.staff_id
+        WHERE u.status = 'approved'
+        UNION
+        SELECT u.id AS staff_id, u.name AS staff_name, s.name AS subject_name
+        FROM subject_teachers st
+        JOIN subjects s ON s.id = st.subject_id
+        JOIN users u ON u.id = st.staff_id
+        WHERE u.status = 'approved'
+      ) combined
+      GROUP BY staff_id, staff_name
+      ORDER BY staff_name
     `);
     res.json({
       educators: rows.map((r) => ({ id: r.staff_id, name: r.staff_name, subjects: r.subjects })),

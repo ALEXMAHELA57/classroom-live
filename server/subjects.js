@@ -1,5 +1,6 @@
 import { nanoid } from 'nanoid';
 import * as db from './db.js';
+import * as auth from './auth.js';
 
 function toPublicSubject(row, enrolledStudentIds, coTeachers = []) {
   return {
@@ -200,6 +201,10 @@ export async function addCoTeacher(subjectId, staffId, actingUser) {
     throw new Error("Only this subject's teacher or an admin can add co-teachers");
   }
   if (staffId === raw.staff_id) throw new Error('That person already teaches this subject');
+  const target = await auth.getUserById(staffId);
+  if (!target || target.status !== 'approved' || !['staff', 'superadmin'].includes(target.role)) {
+    throw new Error('That person is not an approved staff or admin account');
+  }
   await db.query(
     `INSERT INTO subject_teachers (subject_id, staff_id, added_at)
      VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
