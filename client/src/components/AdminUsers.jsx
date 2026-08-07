@@ -25,6 +25,8 @@ export default function AdminUsers() {
   const [resetPasswordValue, setResetPasswordValue] = useState('');
   const [resetting, setResetting] = useState(false);
   const [resetMessage, setResetMessage] = useState('');
+  const [roleUpdating, setRoleUpdating] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
 
   async function refresh() {
     try {
@@ -46,6 +48,34 @@ export default function AdminUsers() {
   async function disable(id) {
     await authedFetch(`/api/admin/users/${id}/disable`, { method: 'PATCH' });
     refresh();
+  }
+
+  async function changeRole(id, role, currentRole) {
+    if (role === currentRole) return;
+    if (!window.confirm(`Change this account's role to ${role}?`)) return;
+    setRoleUpdating(id);
+    try {
+      await authedFetch(`/api/admin/users/${id}/role`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role }),
+      });
+      refresh();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRoleUpdating(null);
+    }
+  }
+
+  async function deleteAccount(id, name) {
+    setDeleteError('');
+    if (!window.confirm(`Permanently delete ${name}'s account? This cannot be undone.`)) return;
+    try {
+      await authedFetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+      refresh();
+    } catch (err) {
+      setDeleteError(err.message);
+    }
   }
 
   async function submitResetPassword(userId) {
@@ -86,6 +116,7 @@ export default function AdminUsers() {
       <div className="admin-wrap">
         <h1>Accounts</h1>
         {error && <p className="error">{error}</p>}
+        {deleteError && <p className="error">{deleteError}</p>}
 
         <div className="card admin-create">
           <h3>Create an account</h3>
@@ -134,7 +165,17 @@ export default function AdminUsers() {
                 <tr>
                   <td>{u.name}</td>
                   <td>{u.email}</td>
-                  <td>{u.role}</td>
+                  <td>
+                    <select
+                      value={u.role}
+                      disabled={roleUpdating === u.id}
+                      onChange={(e) => changeRole(u.id, e.target.value, u.role)}
+                    >
+                      <option value="student">Student</option>
+                      <option value="staff">Staff / teacher</option>
+                      <option value="superadmin">Superadmin</option>
+                    </select>
+                  </td>
                   <td>
                     <span className={`status-badge status-${u.status}`}>{u.status}</span>
                   </td>
@@ -158,6 +199,9 @@ export default function AdminUsers() {
                       }}
                     >
                       Reset password
+                    </button>
+                    <button className="ghost danger" onClick={() => deleteAccount(u.id, u.name)}>
+                      Delete
                     </button>
                   </td>
                 </tr>

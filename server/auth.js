@@ -132,6 +132,75 @@ export async function setUserStatus(userId, status) {
   return toPublicUser(rows[0]);
 }
 
+const VALID_ROLES = ['student', 'staff', 'superadmin'];
+
+export async function setUserRole(userId, role, actingUser) {
+  if (!VALID_ROLES.includes(role)) throw new Error('Invalid role');
+  if (userId === actingUser.id) throw new Error("You can't change your own role");
+  // Never let the platform end up with zero superadmins able to manage it.
+  if (role !== 'superadmin') {
+    const target = await getUserById(userId);
+    if (target?.role === 'superadmin') {
+      const { rows } = await db.query(
+        "SELECT COUNT(*) AS n FROM users WHERE role = 'superadmin' AND status = 'approved'"
+      );
+      if (Number(rows[0].n) <= 1) {
+        throw new Error('Cannot change the role of the last remaining superadmin');
+      }
+    }
+  }
+  const { rows } = await db.query('UPDATE users SET role = $1 WHERE id = $2 RETURNING *', [
+    role,
+    userId,
+  ]);
+  if (!rows[0]) throw new Error('User not found');
+  return toPublicUser(rows[0]);
+}
+
+// Blocks deletion of accounts that still own content without a
+// cascading foreign key (rooms, subjects, quizzes, assignments,
+// recordings) -- deleting them would either fail outright or, if those
+// columns cascaded, silently wipe out everything downstream (student
+// submissions, grades, subject rosters). Student-only data (self
+// recordings, quiz/assignment submissions, enrollments, attendance)
+// already cascades safely, so students never hit this block.
+export async function deleteUserAccount(userId, actingUser) {
+  if (userId === actingUser.id) throw new Error("You can't delete your own account");
+  const target = await getUserById(userId);
+  if (!target) throw new Error('User not found');
+  if (target.role === 'superadmin') {
+    const { rows } = await db.query(
+      "SELECT COUNT(*) AS n FROM users WHERE role = 'superadmin' AND status = 'approved'"
+    );
+    if (Number(rows[0].n) <= 1) {
+      throw new Error('Cannot delete the last remaining superadmin');
+    }
+  }
+
+  const { rows: owned } = await db.query(
+    `SELECT
+       (SELECT COUNT(*) FROM rooms WHERE host_user_id = $1) AS rooms,
+       (SELECT COUNT(*) FROM subjects WHERE staff_id = $1) AS subjects,
+       (SELECT COUNT(*) FROM quizzes WHERE created_by = $1) AS quizzes,
+       (SELECT COUNT(*) FROM assignments WHERE created_by = $1) AS assignments,
+       (SELECT COUNT(*) FROM room_recordings WHERE recorded_by = $1) AS recordings`,
+    [userId]
+  );
+  const counts = owned[0];
+  const blocking = Object.entries(counts)
+    .filter(([, n]) => Number(n) > 0)
+    .map(([label, n]) => `${n} ${label}`);
+  if (blocking.length > 0) {
+    throw new Error(
+      `This account still owns ${blocking.join(', ')}. Reassign or delete those first, ` +
+        `or disable the account instead if you just want to remove access.`
+    );
+  }
+
+  const { rowCount } = await db.query('DELETE FROM users WHERE id = $1', [userId]);
+  if (rowCount === 0) throw new Error('User not found');
+}
+
 export async function login({ email, password }) {
   const row = await getUserByEmail(String(email || '').trim().toLowerCase());
   if (!row || !bcrypt.compareSync(password || '', row.password_hash)) {

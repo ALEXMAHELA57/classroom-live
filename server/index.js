@@ -291,6 +291,24 @@ app.patch('/api/admin/users/:id/disable', auth.requireAuth, auth.requireRole('su
   }
 });
 
+app.patch('/api/admin/users/:id/role', auth.requireAuth, auth.requireRole('superadmin'), async (req, res) => {
+  try {
+    const user = await auth.setUserRole(req.params.id, req.body?.role, req.user);
+    res.json({ user });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin/users/:id', auth.requireAuth, auth.requireRole('superadmin'), async (req, res) => {
+  try {
+    await auth.deleteUserAccount(req.params.id, req.user);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.post(
   '/api/admin/users/:id/reset-password',
   auth.requireAuth,
