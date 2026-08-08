@@ -88,6 +88,15 @@ export async function removeSubjectTeacher(subjectId, staffId) {
   return parseOrThrow(res);
 }
 
+export async function setEducatorVisibility(subjectId, staffId, visible) {
+  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/teachers/${staffId}/visibility`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ visible }),
+  });
+  return parseOrThrow(res);
+}
+
 export async function listStudents() {
   const res = await fetch(`${API_BASE}/api/students`, { headers: authHeaders() });
   return parseOrThrow(res);

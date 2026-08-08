@@ -692,6 +692,25 @@ app.delete(
   }
 );
 
+app.patch(
+  '/api/subjects/:subjectId/teachers/:staffId/visibility',
+  auth.requireAuth,
+  auth.requireRole('superadmin'),
+  async (req, res) => {
+    try {
+      const subject = await subjects.setEducatorVisibility(
+        req.params.subjectId,
+        req.params.staffId,
+        Boolean(req.body?.visible),
+        req.user
+      );
+      res.json({ subject });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+);
+
 app.get('/api/students', auth.requireAuth, auth.requireRole('staff', 'superadmin'), async (req, res) => {
   try {
     const students = (await auth.listUsers()).filter((u) => u.role === 'student' && u.status === 'approved');
@@ -716,19 +735,22 @@ app.get('/api/public/educators', async (req, res) => {
     // (subject_teachers) into one set of (educator, subject) pairs, then
     // groups by educator. UNION (not UNION ALL) collapses the rare case
     // where someone is both the primary teacher and a co-teacher.
+    // visible_as_educator lets admin hide a specific teacher from this
+    // page on a per-subject basis without affecting their actual
+    // teaching access.
     const { rows } = await db.query(`
       SELECT staff_id, staff_name, array_agg(DISTINCT subject_name ORDER BY subject_name) AS subjects
       FROM (
         SELECT u.id AS staff_id, u.name AS staff_name, s.name AS subject_name
         FROM subjects s
         JOIN users u ON u.id = s.staff_id
-        WHERE u.status = 'approved'
+        WHERE u.status = 'approved' AND s.visible_as_educator = true
         UNION
         SELECT u.id AS staff_id, u.name AS staff_name, s.name AS subject_name
         FROM subject_teachers st
         JOIN subjects s ON s.id = st.subject_id
         JOIN users u ON u.id = st.staff_id
-        WHERE u.status = 'approved'
+        WHERE u.status = 'approved' AND st.visible_as_educator = true
       ) combined
       GROUP BY staff_id, staff_name
       ORDER BY staff_name

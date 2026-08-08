@@ -8,6 +8,7 @@ function toPublicSubject(row, enrolledStudentIds, coTeachers = []) {
     name: row.name,
     staffId: row.staff_id,
     staffName: row.staff_name,
+    staffVisibleAsEducator: row.visible_as_educator,
     coTeachers,
     createdAt: Number(row.created_at),
     enrolledStudentIds,
@@ -25,12 +26,16 @@ async function getEnrolledIds(subjectId) {
 
 async function getCoTeachers(subjectId) {
   const { rows } = await db.query(
-    `SELECT u.id, u.name FROM subject_teachers st
+    `SELECT u.id, u.name, st.visible_as_educator FROM subject_teachers st
      JOIN users u ON u.id = st.staff_id
      WHERE st.subject_id = $1 ORDER BY st.added_at`,
     [subjectId]
   );
-  return rows;
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    visibleAsEducator: r.visible_as_educator,
+  }));
 }
 
 async function getRawSubject(id) {
@@ -225,6 +230,35 @@ export async function removeCoTeacher(subjectId, staffId, actingUser) {
     subjectId,
     staffId,
   ]);
+  return getSubject(subjectId);
+}
+
+// Controls whether a specific staff member shows up on the public
+// "Find Educators" page for THIS subject specifically -- purely a
+// visibility setting, doesn't touch their actual teaching permissions
+// (roster, quizzes, etc). Admin-only by design: this is about how the
+// school presents itself publicly, not day-to-day subject management,
+// so it's kept separate from the teacher-or-admin rule that governs
+// adding/removing co-teachers.
+export async function setEducatorVisibility(subjectId, staffId, visible, actingUser) {
+  if (actingUser.role !== 'superadmin') {
+    throw new Error('Only an admin can control public educator visibility');
+  }
+  const raw = await getRawSubject(subjectId);
+  if (!raw) throw new Error('Subject not found');
+
+  if (staffId === raw.staff_id) {
+    await db.query('UPDATE subjects SET visible_as_educator = $1 WHERE id = $2', [
+      visible,
+      subjectId,
+    ]);
+  } else {
+    const { rowCount } = await db.query(
+      'UPDATE subject_teachers SET visible_as_educator = $1 WHERE subject_id = $2 AND staff_id = $3',
+      [visible, subjectId, staffId]
+    );
+    if (rowCount === 0) throw new Error('That person does not teach this subject');
+  }
   return getSubject(subjectId);
 }
 

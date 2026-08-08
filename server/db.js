@@ -253,6 +253,13 @@ export async function initSchema() {
   // databases that were set up before this column existed.
   await pool.query(`
     ALTER TABLE subjects ADD COLUMN IF NOT EXISTS syllabus_text TEXT;
+    -- Admin can hide a specific teacher from the public "Find Educators"
+    -- page on a per-subject basis (e.g. a substitute or admin who
+    -- shouldn't be publicly listed) without affecting their actual
+    -- teaching permissions on the subject -- this only controls public
+    -- visibility, not access.
+    ALTER TABLE subjects ADD COLUMN IF NOT EXISTS visible_as_educator BOOLEAN NOT NULL DEFAULT true;
+    ALTER TABLE subject_teachers ADD COLUMN IF NOT EXISTS visible_as_educator BOOLEAN NOT NULL DEFAULT true;
     ALTER TABLE assignments ADD COLUMN IF NOT EXISTS source_filename TEXT;
     ALTER TABLE assignments ADD COLUMN IF NOT EXISTS source_original_name TEXT;
     -- Draft/review workflow: teacher-generated (AI) and uploaded quizzes/

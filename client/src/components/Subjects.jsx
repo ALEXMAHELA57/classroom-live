@@ -8,6 +8,7 @@ import {
   deleteSubject,
   addSubjectTeacher,
   removeSubjectTeacher,
+  setEducatorVisibility,
   listStaff,
   listStudents,
   enrollStudent,
@@ -197,6 +198,7 @@ function StudentSubjectCard({ subject }) {
 }
 
 function SubjectManageCard({ subject, onChanged }) {
+  const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [staffList, setStaffList] = useState([]);
   const [selectedTeacher, setSelectedTeacher] = useState('');
@@ -293,6 +295,16 @@ function SubjectManageCard({ subject, onChanged }) {
     setTeacherError('');
     try {
       await removeSubjectTeacher(subject.id, staffId);
+      onChanged();
+    } catch (err) {
+      setTeacherError(err.message);
+    }
+  }
+
+  async function toggleVisibility(staffId, currentlyVisible) {
+    setTeacherError('');
+    try {
+      await setEducatorVisibility(subject.id, staffId, !currentlyVisible);
       onChanged();
     } catch (err) {
       setTeacherError(err.message);
@@ -542,11 +554,37 @@ function SubjectManageCard({ subject, onChanged }) {
             </div>
             <ul className="roster-list roster-mod" style={{ marginTop: 10 }}>
               <li>
-                <span>{subject.staffName} &middot; <span className="muted">Primary teacher</span></span>
+                <span>
+                  {subject.staffName} &middot; <span className="muted">Primary teacher</span>
+                  {user.role === 'superadmin' && !subject.staffVisibleAsEducator && (
+                    <span className="muted"> &middot; hidden from Find Educators</span>
+                  )}
+                </span>
+                {user.role === 'superadmin' && (
+                  <button
+                    className="ghost"
+                    onClick={() => toggleVisibility(subject.staffId, subject.staffVisibleAsEducator)}
+                  >
+                    {subject.staffVisibleAsEducator ? 'Hide from Find Educators' : 'Show on Find Educators'}
+                  </button>
+                )}
               </li>
               {subject.coTeachers.map((t) => (
                 <li key={t.id}>
-                  <span>{t.name}</span>
+                  <span>
+                    {t.name}
+                    {user.role === 'superadmin' && !t.visibleAsEducator && (
+                      <span className="muted"> &middot; hidden from Find Educators</span>
+                    )}
+                  </span>
+                  {user.role === 'superadmin' && (
+                    <button
+                      className="ghost"
+                      onClick={() => toggleVisibility(t.id, t.visibleAsEducator)}
+                    >
+                      {t.visibleAsEducator ? 'Hide from Find Educators' : 'Show on Find Educators'}
+                    </button>
+                  )}
                   <button className="ghost" onClick={() => removeTeacher(t.id)}>
                     Remove
                   </button>
