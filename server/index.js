@@ -780,14 +780,18 @@ app.get('/api/staff', auth.requireAuth, async (req, res) => {
   }
 });
 
-// --- Student self-recordings ------------------------------------------
-// A student's own recording of themselves (mic/camera, toggled on
-// manually by the student) — distinct from the room-level session
-// recording. Stored on R2, same as session recordings.
+// --- Self-recordings -----------------------------------------------------
+// A person's own recording of themselves (mic/camera, toggled on
+// manually) — distinct from the room-level session recording. Stored
+// on R2, same as session recordings. Originally student-only; staff and
+// superadmin can create and share these too now, just with a different
+// sharing model (see /share-students below) — a teacher shares OUT to
+// one or more students, rather than a student sharing UP to one staff
+// member.
 app.post(
   '/api/self-recordings',
   auth.requireAuth,
-  auth.requireRole('student'),
+  auth.requireRole('student', 'staff', 'superadmin'),
   selfRecordingUpload.single('file'),
   async (req, res) => {
     try {
@@ -810,14 +814,19 @@ app.post(
   }
 );
 
-app.get('/api/self-recordings', auth.requireAuth, auth.requireRole('student'), async (req, res) => {
-  try {
-    res.json({ recordings: await selfRecordings.listForStudent(req.user.id) });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Could not list recordings' });
+app.get(
+  '/api/self-recordings',
+  auth.requireAuth,
+  auth.requireRole('student', 'staff', 'superadmin'),
+  async (req, res) => {
+    try {
+      res.json({ recordings: await selfRecordings.listForStudent(req.user.id) });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Could not list recordings' });
+    }
   }
-});
+);
 
 app.post('/api/self-recordings/:id/share', auth.requireAuth, auth.requireRole('student'), async (req, res) => {
   try {
@@ -827,6 +836,67 @@ app.post('/api/self-recordings/:id/share', auth.requireAuth, auth.requireRole('s
     res.status(400).json({ error: err.message });
   }
 });
+
+// Staff/admin sharing a recording out to specific students, or every
+// student across the subjects they teach -- separate mechanism from the
+// student -> staff share above.
+app.get(
+  '/api/self-recordings/shareable-students',
+  auth.requireAuth,
+  auth.requireRole('staff', 'superadmin'),
+  async (req, res) => {
+    try {
+      res.json({ students: await selfRecordings.listShareableStudents(req.user.id) });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Could not list students' });
+    }
+  }
+);
+
+app.post(
+  '/api/self-recordings/:id/share-students',
+  auth.requireAuth,
+  auth.requireRole('staff', 'superadmin'),
+  async (req, res) => {
+    try {
+      const result = await selfRecordings.shareWithStudents(req.params.id, req.user, {
+        studentIds: req.body?.studentIds,
+        all: Boolean(req.body?.all),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+);
+
+app.delete(
+  '/api/self-recordings/:id/share-students/:studentId',
+  auth.requireAuth,
+  auth.requireRole('staff', 'superadmin'),
+  async (req, res) => {
+    try {
+      await selfRecordings.unshareFromStudent(req.params.id, req.params.studentId, req.user);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+);
+
+app.get(
+  '/api/self-recordings/:id/shares',
+  auth.requireAuth,
+  auth.requireRole('staff', 'superadmin'),
+  async (req, res) => {
+    try {
+      res.json({ shares: await selfRecordings.getShares(req.params.id, req.user) });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+);
 
 // Unshare -- not a hard delete. The owning student, the staff member
 // it's currently shared with, or a superadmin can sever the share;
@@ -843,13 +913,17 @@ app.delete('/api/self-recordings/:id/share', auth.requireAuth, async (req, res) 
 app.get(
   '/api/self-recordings/shared-with-me',
   auth.requireAuth,
-  auth.requireRole('staff', 'superadmin'),
+  auth.requireRole('student', 'staff', 'superadmin'),
   async (req, res) => {
     try {
-      const recordings =
-        req.user.role === 'superadmin'
-          ? await selfRecordings.listAllShared()
-          : await selfRecordings.listSharedWithStaff(req.user.id);
+      let recordings;
+      if (req.user.role === 'student') {
+        recordings = await selfRecordings.listSharedWithStudent(req.user.id);
+      } else if (req.user.role === 'superadmin') {
+        recordings = await selfRecordings.listAllShared();
+      } else {
+        recordings = await selfRecordings.listSharedWithStaff(req.user.id);
+      }
       res.json({ recordings });
     } catch (err) {
       console.error(err);

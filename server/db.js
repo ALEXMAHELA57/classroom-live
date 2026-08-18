@@ -213,6 +213,19 @@ export async function initSchema() {
       shared_at BIGINT
     );
 
+    -- Separate from self_recordings.shared_with_staff_id (which is a
+    -- single-recipient student -> staff share). This is many-to-many,
+    -- for a staff/admin-created recording shared with one or more
+    -- specific students, or every student across the subjects they
+    -- teach. The two mechanisms are deliberately independent -- the
+    -- existing student -> staff flow is untouched.
+    CREATE TABLE IF NOT EXISTS recording_shares (
+      recording_id TEXT NOT NULL REFERENCES self_recordings(id) ON DELETE CASCADE,
+      shared_with_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      shared_at BIGINT NOT NULL,
+      PRIMARY KEY (recording_id, shared_with_id)
+    );
+
     -- Single-row counter for the public homepage's visitor count.
     -- Deliberately not per-visitor tracking (no IPs, no accounts) --
     -- the client increments this once per browser (see /api/visits),

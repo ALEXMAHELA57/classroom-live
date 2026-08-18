@@ -56,6 +56,100 @@ async function getRaw(recordingId) {
   return rows[0] || null;
 }
 
+// Every student enrolled in any subject this staff member teaches,
+// whether as the primary teacher or a co-teacher. This defines both
+// who a "share with all my students" broadcast reaches, and the pool
+// a staff member can pick a specific student from.
+async function getMyStudentIds(staffId) {
+  const { rows } = await db.query(
+    `SELECT DISTINCT se.student_id
+     FROM subject_enrollments se
+     JOIN subjects s ON s.id = se.subject_id
+     LEFT JOIN subject_teachers st ON st.subject_id = s.id
+     WHERE s.staff_id = $1 OR st.staff_id = $1`,
+    [staffId]
+  );
+  return rows.map((r) => r.student_id);
+}
+
+export async function listShareableStudents(staffId) {
+  const studentIds = await getMyStudentIds(staffId);
+  if (studentIds.length === 0) return [];
+  const { rows } = await db.query(
+    `SELECT id, name FROM users WHERE id = ANY($1) AND status = 'approved' ORDER BY name`,
+    [studentIds]
+  );
+  return rows;
+}
+
+// Shares a staff/admin-created recording with either specific students
+// or every student across the subjects the creator teaches. Only the
+// recording's own creator (or a superadmin) can do this -- someone
+// this was shared WITH can't turn around and re-share it further.
+export async function shareWithStudents(recordingId, actingUser, { studentIds, all }) {
+  const raw = await getRaw(recordingId);
+  if (!raw) throw new Error('Recording not found');
+  if (actingUser.role !== 'superadmin' && raw.student_id !== actingUser.id) {
+    throw new Error('Only the person who made this recording can share it');
+  }
+  const targets = all ? await getMyStudentIds(raw.student_id) : studentIds || [];
+  if (targets.length === 0) {
+    throw new Error(all ? "You don't have any students enrolled yet" : 'No students selected');
+  }
+  const now = Date.now();
+  for (const studentId of targets) {
+    await db.query(
+      `INSERT INTO recording_shares (recording_id, shared_with_id, shared_at)
+       VALUES ($1, $2, $3) ON CONFLICT (recording_id, shared_with_id) DO UPDATE SET shared_at = $3`,
+      [recordingId, studentId, now]
+    );
+  }
+  return { id: recordingId, sharedWith: targets.length };
+}
+
+export async function unshareFromStudent(recordingId, studentId, actingUser) {
+  const raw = await getRaw(recordingId);
+  if (!raw) throw new Error('Recording not found');
+  if (actingUser.role !== 'superadmin' && raw.student_id !== actingUser.id) {
+    throw new Error('Only the person who made this recording can manage its shares');
+  }
+  await db.query('DELETE FROM recording_shares WHERE recording_id = $1 AND shared_with_id = $2', [
+    recordingId,
+    studentId,
+  ]);
+  return { id: recordingId };
+}
+
+export async function getShares(recordingId, actingUser) {
+  const raw = await getRaw(recordingId);
+  if (!raw) throw new Error('Recording not found');
+  if (actingUser.role !== 'superadmin' && raw.student_id !== actingUser.id) {
+    throw new Error('Only the person who made this recording can view its shares');
+  }
+  const { rows } = await db.query(
+    `SELECT u.id, u.name FROM recording_shares rs
+     JOIN users u ON u.id = rs.shared_with_id
+     WHERE rs.recording_id = $1 ORDER BY u.name`,
+    [recordingId]
+  );
+  return rows;
+}
+
+// Recordings a staff/admin has shared directly with this student, via
+// the multi-recipient mechanism above (separate from a student's own
+// self_recordings, and separate from the staff-facing "shared with me"
+// view of student -> staff shares).
+export async function listSharedWithStudent(studentId) {
+  const { rows } = await db.query(
+    `SELECT sr.*, u.name AS creator_name FROM recording_shares rs
+     JOIN self_recordings sr ON sr.id = rs.recording_id
+     JOIN users u ON u.id = sr.student_id
+     WHERE rs.shared_with_id = $1 ORDER BY rs.shared_at DESC`,
+    [studentId]
+  );
+  return rows.map((r) => ({ ...toPublic(r), creatorName: r.creator_name }));
+}
+
 // A student can only share their own recording, and only to one staff
 // member at a time (sharing again just replaces who it's shared with).
 export async function shareRecording(recordingId, studentId, staffId) {
@@ -94,10 +188,17 @@ export async function unshareRecording(recordingId, user) {
 export async function getRecordingForDownload(recordingId, user) {
   const raw = await getRaw(recordingId);
   if (!raw) throw new Error('Recording not found');
-  const allowed =
+  let allowed =
     user.role === 'superadmin' ||
     raw.student_id === user.id ||
     (raw.shared_with_staff_id && raw.shared_with_staff_id === user.id);
+  if (!allowed) {
+    const { rows } = await db.query(
+      'SELECT 1 FROM recording_shares WHERE recording_id = $1 AND shared_with_id = $2',
+      [recordingId, user.id]
+    );
+    allowed = rows.length > 0;
+  }
   if (!allowed) throw new Error('Not permitted');
   return { r2Key: raw.filename, originalName: raw.original_name };
 }

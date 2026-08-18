@@ -117,13 +117,15 @@ export default function App() {
               <span className="dash-tile-desc">Update your name or change your password.</span>
             </Link>
 
-            {user.role === 'student' && (
-              <Link to="/my-recordings" className="dash-tile">
-                <div className="dash-tile-icon">🎥</div>
-                <span className="dash-tile-title">My recordings</span>
-                <span className="dash-tile-desc">Recordings you've made and shared with staff.</span>
-              </Link>
-            )}
+            <Link to="/my-recordings" className="dash-tile">
+              <div className="dash-tile-icon">🎥</div>
+              <span className="dash-tile-title">My recordings</span>
+              <span className="dash-tile-desc">
+                {user.role === 'student'
+                  ? "Recordings you've made and shared with staff."
+                  : "Recordings you've made and shared with students."}
+              </span>
+            </Link>
 
             {(user.role === 'staff' || user.role === 'superadmin') && (
               <Link to="/shared-recordings" className="dash-tile">

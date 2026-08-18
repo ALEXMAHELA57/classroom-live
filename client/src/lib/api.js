@@ -430,6 +430,37 @@ export async function unshareSelfRecording(recordingId) {
   return parseOrThrow(res);
 }
 
+export async function listShareableStudents() {
+  const res = await fetch(`${API_BASE}/api/self-recordings/shareable-students`, {
+    headers: authHeaders(),
+  });
+  return parseOrThrow(res);
+}
+
+export async function shareRecordingWithStudents(recordingId, { studentIds, all }) {
+  const res = await fetch(`${API_BASE}/api/self-recordings/${recordingId}/share-students`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ studentIds, all }),
+  });
+  return parseOrThrow(res);
+}
+
+export async function unshareRecordingFromStudent(recordingId, studentId) {
+  const res = await fetch(
+    `${API_BASE}/api/self-recordings/${recordingId}/share-students/${studentId}`,
+    { method: 'DELETE', headers: authHeaders() }
+  );
+  return parseOrThrow(res);
+}
+
+export async function getRecordingShares(recordingId) {
+  const res = await fetch(`${API_BASE}/api/self-recordings/${recordingId}/shares`, {
+    headers: authHeaders(),
+  });
+  return parseOrThrow(res);
+}
+
 export async function listSharedRecordings() {
   const res = await fetch(`${API_BASE}/api/self-recordings/shared-with-me`, { headers: authHeaders() });
   return parseOrThrow(res);
