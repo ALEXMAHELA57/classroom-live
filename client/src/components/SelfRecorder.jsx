@@ -9,6 +9,7 @@ export default function SelfRecorder({ onRecorded }) {
   const [error, setError] = useState('');
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(false);
+  const [facingMode, setFacingMode] = useState('user');
   const [includeCameraChoice, setIncludeCameraChoice] = useState(true); // the idle-screen checkbox
   const [stream, setStream] = useState(null);
   const videoRef = useRef(null);
@@ -42,6 +43,7 @@ export default function SelfRecorder({ onRecorded }) {
       setStream(newStream);
       setMicOn(true);
       setCamOn(includeCameraChoice);
+      setFacingMode('user');
       setStatus('previewing');
     } catch (err) {
       setError(
@@ -85,6 +87,30 @@ export default function SelfRecorder({ onRecorded }) {
       setCamOn(true);
     } catch (err) {
       setError(`Could not turn camera back on: ${err.message || err.name}`);
+    }
+  }
+
+  // Swaps the current camera track for the opposite-facing one on the
+  // SAME live stream (same approach as toggleCam's "turn camera back on"
+  // path) rather than tearing down and restarting the whole preview —
+  // the <video> element and, if already recording, the MediaRecorder
+  // both pick up a track swap on an in-use stream automatically.
+  async function flipCamera() {
+    if (!stream || !camOn) return;
+    const nextFacing = facingMode === 'user' ? 'environment' : 'user';
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: nextFacing },
+      });
+      const [newTrack] = newStream.getVideoTracks();
+      stream.getVideoTracks().forEach((t) => {
+        stream.removeTrack(t);
+        t.stop();
+      });
+      stream.addTrack(newTrack);
+      setFacingMode(nextFacing);
+    } catch (err) {
+      setError(`Could not switch camera: ${err.message || err.name}`);
     }
   }
 
@@ -151,6 +177,11 @@ export default function SelfRecorder({ onRecorded }) {
               <button className="ghost" onClick={toggleCam}>
                 {camOn ? 'Turn camera off' : 'Turn camera on'}
               </button>
+              {camOn && (
+                <button className="ghost" onClick={flipCamera}>
+                  Flip camera
+                </button>
+              )}
             </span>
           </div>
         </>
