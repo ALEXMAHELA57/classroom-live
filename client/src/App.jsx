@@ -73,8 +73,14 @@ export default function App() {
               </select>
             )}
             <label
-              className="muted"
-              style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: '0.85rem' }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                marginTop: 8,
+                fontSize: '0.85rem',
+                color: '#c7d3cf',
+              }}
             >
               <input
                 type="checkbox"
