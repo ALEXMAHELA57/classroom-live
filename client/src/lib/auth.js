@@ -57,6 +57,17 @@ export async function registerWithGoogle(credential, role) {
   return parseOrThrow(res);
 }
 
+export async function joinAsGuest(roomId, name) {
+  const res = await fetch(`${API_BASE}/api/rooms/${roomId}/guest-join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  const data = await parseOrThrow(res);
+  setToken(data.token);
+  return data.user;
+}
+
 export function logout() {
   clearToken();
 }

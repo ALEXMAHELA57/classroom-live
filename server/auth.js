@@ -262,6 +262,36 @@ export async function registerWithGoogle(credential) {
   return toPublicUser({ ...row, created_at: row.createdAt });
 }
 
+// Creates a throwaway, auto-approved account for someone joining a
+// guest-enabled room without ever registering. Reuses the exact same
+// login/session/permission machinery as every other account rather
+// than inventing a parallel "no real account" identity throughout the
+// app — the tradeoff is a real (if disposable) row in `users`, which is
+// a small, easy cost for not having to special-case guests through
+// chat, recordings, and everywhere else a user is assumed to exist.
+// Deliberately always 'student' role and never eligible for anything
+// staff/admin-only, same reasoning as self-registration.
+export async function createGuestAccount(name) {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) throw new Error('Name is required');
+  const row = {
+    id: nanoid(10),
+    name: trimmed,
+    email: `guest-${nanoid(16)}@guest.classroom-live.internal`,
+    passwordHash: bcrypt.hashSync(nanoid(32), 10), // unusable, same as Google-only accounts
+    role: 'student',
+    status: 'approved', // no admin review — that's the whole point of a guest join
+    createdAt: Date.now(),
+  };
+  await db.query(
+    `INSERT INTO users (id, name, email, password_hash, role, status, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [row.id, row.name, row.email, row.passwordHash, row.role, row.status, row.createdAt]
+  );
+  const token = jwt.sign({ sub: row.id }, JWT_SECRET, { expiresIn: TOKEN_TTL });
+  return { token, user: toPublicUser({ ...row, created_at: row.createdAt }) };
+}
+
 export async function verifyToken(token) {
   const payload = jwt.verify(token, JWT_SECRET);
   const row = await getUserById(payload.sub);

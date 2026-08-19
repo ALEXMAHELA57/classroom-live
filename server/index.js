@@ -451,7 +451,7 @@ app.get('/api/admin/live-sessions', auth.requireAuth, auth.requireRole('superadm
 // host. An optional durationMinutes sets a hard time limit: the server
 // (not the client's clock) disconnects everyone when it's up.
 app.post('/api/rooms', auth.requireAuth, auth.requireRole('staff', 'superadmin'), async (req, res) => {
-  const { durationMinutes, subjectId } = req.body || {};
+  const { durationMinutes, subjectId, allowGuests } = req.body || {};
 
   let resolvedSubjectId = null;
   let resolvedSubjectName = null;
@@ -474,6 +474,7 @@ app.post('/api/rooms', auth.requireAuth, auth.requireRole('staff', 'superadmin')
       hostUserId: req.user.id,
       endsAt,
       subjectId: resolvedSubjectId,
+      allowGuests: Boolean(allowGuests),
     });
     getLiveRoom(room.id);
     scheduleTimeLimit(room.id, endsAt);
@@ -504,6 +505,40 @@ app.post('/api/rooms', auth.requireAuth, auth.requireRole('staff', 'superadmin')
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Could not create room' });
+  }
+});
+
+// Deliberately unauthenticated -- this is the very first thing the join
+// screen calls, before we know whether the visitor has an account at
+// all, so it can decide whether to prompt for login or just a guest
+// name. Only ever returns the minimal shape from getPublicRoomInfo.
+app.get('/api/rooms/:roomId/public-info', async (req, res) => {
+  try {
+    const info = await roomsRepo.getPublicRoomInfo(req.params.roomId);
+    if (!info) return res.status(404).json({ error: 'This invite link is invalid.' });
+    res.json(info);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not load room info' });
+  }
+});
+
+// Also deliberately unauthenticated -- this IS how someone without an
+// account gets in. Only works for a room the host explicitly marked
+// allow_guests on; every other route stays exactly as auth-gated as
+// before. See auth.createGuestAccount for what this actually creates.
+app.post('/api/rooms/:roomId/guest-join', async (req, res) => {
+  try {
+    const room = await roomsRepo.getRoom(req.params.roomId);
+    if (!room) return res.status(404).json({ error: 'This invite link is invalid.' });
+    if (room.ended) return res.status(410).json({ error: 'This class has ended.' });
+    if (!room.allowGuests) {
+      return res.status(403).json({ error: 'This class requires an account to join.' });
+    }
+    const { token, user } = await auth.createGuestAccount(req.body?.name);
+    res.json({ token, user });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

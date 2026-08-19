@@ -12,6 +12,7 @@ export default function App() {
   const [duration, setDuration] = useState('');
   const [subjects, setSubjects] = useState([]);
   const [subjectId, setSubjectId] = useState('');
+  const [allowGuests, setAllowGuests] = useState(false);
 
   const canHost = user?.role === 'staff' || user?.role === 'superadmin';
 
@@ -32,7 +33,7 @@ export default function App() {
     setStarting(true);
     setError('');
     try {
-      const { roomId } = await createRoom(duration ? Number(duration) : null, subjectId || null);
+      const { roomId } = await createRoom(duration ? Number(duration) : null, subjectId || null, allowGuests);
       navigate(`/room/${roomId}`);
     } catch (err) {
       setError(err.message);
@@ -71,6 +72,17 @@ export default function App() {
                 ))}
               </select>
             )}
+            <label
+              className="muted"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: '0.85rem' }}
+            >
+              <input
+                type="checkbox"
+                checked={allowGuests}
+                onChange={(e) => setAllowGuests(e.target.checked)}
+              />
+              Allow anyone with the link to join without an account
+            </label>
             <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
               <input
                 id="duration"

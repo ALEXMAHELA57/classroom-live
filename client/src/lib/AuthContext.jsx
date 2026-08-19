@@ -26,13 +26,19 @@ export function AuthProvider({ children }) {
     return u;
   }
 
+  async function joinAsGuest(roomId, name) {
+    const u = await authApi.joinAsGuest(roomId, name);
+    setUser(u);
+    return u;
+  }
+
   function logout() {
     authApi.logout();
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, logout, setUser }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, joinAsGuest, logout, setUser }}>
       {children}
     </AuthContext.Provider>
   );

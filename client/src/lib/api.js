@@ -11,12 +11,21 @@ async function parseOrThrow(res) {
   return data;
 }
 
-export async function createRoom(durationMinutes, subjectId) {
+export async function createRoom(durationMinutes, subjectId, allowGuests) {
   const res = await fetch(`${API_BASE}/api/rooms`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ durationMinutes: durationMinutes || null, subjectId: subjectId || null }),
+    body: JSON.stringify({
+      durationMinutes: durationMinutes || null,
+      subjectId: subjectId || null,
+      allowGuests: Boolean(allowGuests),
+    }),
   });
+  return parseOrThrow(res);
+}
+
+export async function getPublicRoomInfo(roomId) {
+  const res = await fetch(`${API_BASE}/api/rooms/${roomId}/public-info`);
   return parseOrThrow(res);
 }
 

@@ -272,6 +272,11 @@ export async function initSchema() {
     -- teaching permissions on the subject -- this only controls public
     -- visibility, not access.
     ALTER TABLE subjects ADD COLUMN IF NOT EXISTS visible_as_educator BOOLEAN NOT NULL DEFAULT true;
+    -- Opt-in per session, set by the host at creation time -- lets
+    -- anyone with the invite link join without an account or approval,
+    -- for one-off large sessions combining people who aren't already
+    -- on the platform (e.g. a joint session with another school/group).
+    ALTER TABLE rooms ADD COLUMN IF NOT EXISTS allow_guests BOOLEAN NOT NULL DEFAULT false;
     ALTER TABLE subject_teachers ADD COLUMN IF NOT EXISTS visible_as_educator BOOLEAN NOT NULL DEFAULT true;
     ALTER TABLE assignments ADD COLUMN IF NOT EXISTS source_filename TEXT;
     ALTER TABLE assignments ADD COLUMN IF NOT EXISTS source_original_name TEXT;

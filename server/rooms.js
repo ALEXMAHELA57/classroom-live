@@ -10,10 +10,11 @@ function toPublicRoom(row) {
     endsAt: row.ends_at ? Number(row.ends_at) : null,
     ended: row.ended,
     subjectId: row.subject_id || null,
+    allowGuests: Boolean(row.allow_guests),
   };
 }
 
-export async function createRoom({ name, hostUserId, endsAt, subjectId }) {
+export async function createRoom({ name, hostUserId, endsAt, subjectId, allowGuests }) {
   const row = {
     id: nanoid(8),
     name,
@@ -21,11 +22,12 @@ export async function createRoom({ name, hostUserId, endsAt, subjectId }) {
     createdAt: Date.now(),
     endsAt: endsAt || null,
     subjectId: subjectId || null,
+    allowGuests: Boolean(allowGuests),
   };
   await db.query(
-    `INSERT INTO rooms (id, name, host_user_id, created_at, ends_at, ended, subject_id)
-     VALUES ($1, $2, $3, $4, $5, false, $6)`,
-    [row.id, row.name, row.hostUserId, row.createdAt, row.endsAt, row.subjectId]
+    `INSERT INTO rooms (id, name, host_user_id, created_at, ends_at, ended, subject_id, allow_guests)
+     VALUES ($1, $2, $3, $4, $5, false, $6, $7)`,
+    [row.id, row.name, row.hostUserId, row.createdAt, row.endsAt, row.subjectId, row.allowGuests]
   );
   return toPublicRoom({
     id: row.id,
@@ -35,12 +37,23 @@ export async function createRoom({ name, hostUserId, endsAt, subjectId }) {
     ends_at: row.endsAt,
     ended: false,
     subject_id: row.subjectId,
+    allow_guests: row.allowGuests,
   });
 }
 
 export async function getRoom(id) {
   const { rows } = await db.query('SELECT * FROM rooms WHERE id = $1', [id]);
   return rows[0] ? toPublicRoom(rows[0]) : null;
+}
+
+// Deliberately minimal -- called before we know who's asking (possibly
+// nobody with an account at all), so this must never expose anything
+// beyond what's needed to decide whether to show a login prompt or a
+// guest-name prompt on the join screen.
+export async function getPublicRoomInfo(id) {
+  const room = await getRoom(id);
+  if (!room) return null;
+  return { name: room.name, ended: room.ended, allowGuests: room.allowGuests };
 }
 
 // Every session ever started for a subject — this is what lets a
