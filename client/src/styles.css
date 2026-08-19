@@ -1225,7 +1225,7 @@ select {
   border-radius: 12px;
   box-shadow: var(--card-shadow);
 }
-.home-educator-name { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 1.02rem; color: var(--ink); display: block; margin-bottom: 8px; }
+.home-educator-name { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 1.02rem; color: var(--ink); display: block; }
 .home-educator-subjects { display: flex; flex-wrap: wrap; gap: 6px; }
 .home-subject-chip {
   font-size: 0.76rem;

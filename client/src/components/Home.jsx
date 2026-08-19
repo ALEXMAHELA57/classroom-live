@@ -179,13 +179,6 @@ export default function Home() {
             {educators.map((e) => (
               <div className="home-educator-card" key={e.id}>
                 <span className="home-educator-name">{e.name}</span>
-                <div className="home-educator-subjects">
-                  {e.subjects.map((s) => (
-                    <span className="home-subject-chip" key={s}>
-                      {s}
-                    </span>
-                  ))}
-                </div>
               </div>
             ))}
           </div>
