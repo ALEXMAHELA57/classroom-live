@@ -45,9 +45,10 @@ export default function Recordings({ roomId, refreshKey }) {
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not get download link');
-      // Navigating the browser to a presigned R2 URL downloads the file
-      // directly to the device — it never passes through our server.
-      window.location.href = data.url;
+      // Opening in a new tab (rather than navigating the current one)
+      // keeps this page and its React state completely untouched no
+      // matter how the browser handles the cross-origin download.
+      window.open(data.url, '_blank');
     } catch (err) {
       setError(err.message);
     } finally {

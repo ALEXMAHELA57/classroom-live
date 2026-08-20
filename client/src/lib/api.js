@@ -481,9 +481,12 @@ export async function downloadSelfRecording(recordingId) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Could not download recording');
-  // Navigating the browser to a presigned R2 URL downloads the file
-  // directly to the device — it never passes through our server.
-  window.location.href = data.url;
+  // A cross-origin download can sometimes be treated as a real
+  // navigation by the browser mid-flight, which — if it happens on the
+  // current tab — unloads this whole app and its state along with it.
+  // Opening it in a new tab keeps this page completely untouched no
+  // matter how the browser decides to handle the download.
+  window.open(data.url, '_blank');
 }
 
 // Public homepage visitor counter -- no auth headers, these need to

@@ -1584,10 +1584,16 @@ app.post(
           }),
         },
       });
+      // "grid" (not "speaker") deliberately -- LiveKit's speaker layout
+      // decides what to feature based on audio activity, and a screen
+      // share track has no audio of its own, so it was never getting
+      // prominently featured in the recording even while actively being
+      // shared. Grid gives the screen share more space automatically
+      // when one is present, while still showing participant video.
       const info = await egressClient.startRoomCompositeEgress(
         req.params.roomId,
         { file: fileOutput },
-        { layout: 'speaker' }
+        { layout: 'grid' }
       );
       live.activeEgressId = info.egressId;
       live.activeRecordingKey = filepath;
