@@ -10,6 +10,7 @@ export default function SelfRecorder({ onRecorded }) {
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(false);
   const [facingMode, setFacingMode] = useState('user');
+  const [flipping, setFlipping] = useState(false);
   const [includeCameraChoice, setIncludeCameraChoice] = useState(true); // the idle-screen checkbox
   const [stream, setStream] = useState(null);
   const videoRef = useRef(null);
@@ -91,26 +92,40 @@ export default function SelfRecorder({ onRecorded }) {
   }
 
   // Swaps the current camera track for the opposite-facing one on the
-  // SAME live stream (same approach as toggleCam's "turn camera back on"
-  // path) rather than tearing down and restarting the whole preview —
-  // the <video> element and, if already recording, the MediaRecorder
-  // both pick up a track swap on an in-use stream automatically.
+  // SAME live stream. Order matters here: many mobile browsers (iOS
+  // Safari especially) only allow ONE live camera stream at a time —
+  // requesting the new-facing camera before releasing the old one just
+  // hangs the getUserMedia call forever with no error, which is exactly
+  // what made this button look completely inert. Stopping the old track
+  // first, then requesting the new one, avoids that.
   async function flipCamera() {
-    if (!stream || !camOn) return;
+    if (!stream || !camOn || flipping) return;
+    setFlipping(true);
     const nextFacing = facingMode === 'user' ? 'environment' : 'user';
+    const oldTracks = stream.getVideoTracks();
+    oldTracks.forEach((t) => {
+      stream.removeTrack(t);
+      t.stop();
+    });
+    // Brief settle delay — same reasoning as the classroom zoom fix:
+    // even releasing a *different* camera can leave the device's shared
+    // camera subsystem briefly locked on some phones.
+    await new Promise((resolve) => setTimeout(resolve, 200));
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: nextFacing },
       });
       const [newTrack] = newStream.getVideoTracks();
-      stream.getVideoTracks().forEach((t) => {
-        stream.removeTrack(t);
-        t.stop();
-      });
       stream.addTrack(newTrack);
       setFacingMode(nextFacing);
     } catch (err) {
       setError(`Could not switch camera: ${err.message || err.name}`);
+      // We already stopped the old track, so the preview would
+      // otherwise be left with no video at all — fall back to turning
+      // the camera off rather than leaving a silently broken picture.
+      setCamOn(false);
+    } finally {
+      setFlipping(false);
     }
   }
 
@@ -178,8 +193,8 @@ export default function SelfRecorder({ onRecorded }) {
                 {camOn ? 'Turn camera off' : 'Turn camera on'}
               </button>
               {camOn && (
-                <button className="ghost" onClick={flipCamera}>
-                  Flip camera
+                <button className="ghost" onClick={flipCamera} disabled={flipping}>
+                  {flipping ? 'Switching…' : 'Flip camera'}
                 </button>
               )}
             </span>
