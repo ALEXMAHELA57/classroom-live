@@ -29,6 +29,41 @@ export async function getPublicRoomInfo(roomId) {
   return parseOrThrow(res);
 }
 
+export async function createScheduledClass({ subjectId, title, scheduledAt, durationMinutes, allowGuests }) {
+  const res = await fetch(`${API_BASE}/api/scheduled-classes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ subjectId, title, scheduledAt, durationMinutes, allowGuests }),
+  });
+  return parseOrThrow(res);
+}
+
+export async function listScheduledClasses() {
+  const res = await fetch(`${API_BASE}/api/scheduled-classes`, { headers: authHeaders() });
+  return parseOrThrow(res);
+}
+
+export async function cancelScheduledClass(id) {
+  const res = await fetch(`${API_BASE}/api/scheduled-classes/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  return parseOrThrow(res);
+}
+
+export async function startScheduledClass(id) {
+  const res = await fetch(`${API_BASE}/api/scheduled-classes/${id}/start`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  return parseOrThrow(res);
+}
+
+export async function getPublicScheduledInfo(id) {
+  const res = await fetch(`${API_BASE}/api/scheduled-classes/${id}/public-info`);
+  return parseOrThrow(res);
+}
+
 export async function getAttendance(roomId) {
   const res = await fetch(`${API_BASE}/api/rooms/${roomId}/attendance`, { headers: authHeaders() });
   return parseOrThrow(res);

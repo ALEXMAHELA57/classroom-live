@@ -277,6 +277,23 @@ export async function initSchema() {
     -- for one-off large sessions combining people who aren't already
     -- on the platform (e.g. a joint session with another school/group).
     ALTER TABLE rooms ADD COLUMN IF NOT EXISTS allow_guests BOOLEAN NOT NULL DEFAULT false;
+    -- A scheduled class/meeting is just a calendar entry until someone
+    -- actually starts it, at which point it creates a real row in
+    -- rooms via the exact same path as an ad-hoc "Start a class" --
+    -- room_id gets filled in then, and everything downstream (guest
+    -- join, recording, notifications) works identically either way.
+    CREATE TABLE IF NOT EXISTS scheduled_classes (
+      id TEXT PRIMARY KEY,
+      host_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      subject_id TEXT REFERENCES subjects(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      scheduled_at BIGINT NOT NULL,
+      duration_minutes INTEGER,
+      allow_guests BOOLEAN NOT NULL DEFAULT false,
+      room_id TEXT REFERENCES rooms(id),
+      created_at BIGINT NOT NULL,
+      canceled BOOLEAN NOT NULL DEFAULT false
+    );
     ALTER TABLE subject_teachers ADD COLUMN IF NOT EXISTS visible_as_educator BOOLEAN NOT NULL DEFAULT true;
     ALTER TABLE assignments ADD COLUMN IF NOT EXISTS source_filename TEXT;
     ALTER TABLE assignments ADD COLUMN IF NOT EXISTS source_original_name TEXT;

@@ -135,6 +135,16 @@ export default function App() {
               <span className="dash-tile-desc">Update your name or change your password.</span>
             </Link>
 
+            <Link to="/schedule" className="dash-tile">
+              <div className="dash-tile-icon">📅</div>
+              <span className="dash-tile-title">Schedule</span>
+              <span className="dash-tile-desc">
+                {user.role === 'student'
+                  ? 'See upcoming scheduled classes.'
+                  : 'Plan a class or meeting for later, instead of starting one right now.'}
+              </span>
+            </Link>
+
             <Link to="/my-recordings" className="dash-tile">
               <div className="dash-tile-icon">🎥</div>
               <span className="dash-tile-title">My recordings</span>

@@ -13,6 +13,7 @@ import * as db from './db.js';
 import * as auth from './auth.js';
 import * as subjects from './subjects.js';
 import * as roomsRepo from './rooms.js';
+import * as scheduling from './scheduling.js';
 import * as recordingsRepo from './recordings.js';
 import * as quizzes from './quizzes.js';
 import * as assignments from './assignments.js';
@@ -541,6 +542,98 @@ app.post('/api/rooms/:roomId/guest-join', async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 });
+
+// --- Scheduled classes ---------------------------------------------------
+// A calendar entry that becomes a real room only once someone actually
+// starts it (see /start below) -- until then it's just a plan, nothing
+// LiveKit-related exists for it yet.
+app.post('/api/scheduled-classes', auth.requireAuth, auth.requireRole('staff', 'superadmin'), async (req, res) => {
+  try {
+    const { subjectId, title, scheduledAt, durationMinutes, allowGuests } = req.body || {};
+    const scheduledClass = await scheduling.createScheduledClass({
+      hostUser: req.user,
+      subjectId: subjectId || null,
+      title,
+      scheduledAt,
+      durationMinutes: durationMinutes || null,
+      allowGuests: Boolean(allowGuests),
+    });
+    res.json({ scheduledClass });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/api/scheduled-classes', auth.requireAuth, async (req, res) => {
+  try {
+    res.json({ scheduledClasses: await scheduling.listUpcomingFor(req.user) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not list scheduled classes' });
+  }
+});
+
+app.delete('/api/scheduled-classes/:id', auth.requireAuth, auth.requireRole('staff', 'superadmin'), async (req, res) => {
+  try {
+    await scheduling.cancelScheduledClass(req.params.id, req.user);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Deliberately unauthenticated, same reasoning as rooms/:id/public-info
+// -- the scheduled-class link needs to work for a visitor who hasn't
+// logged in (or ever will, if it's guest-enabled) yet.
+app.get('/api/scheduled-classes/:id/public-info', async (req, res) => {
+  try {
+    const info = await scheduling.getPublicScheduledInfo(req.params.id);
+    if (!info) return res.status(404).json({ error: 'This link is invalid.' });
+    res.json(info);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not load this scheduled class' });
+  }
+});
+
+app.post(
+  '/api/scheduled-classes/:id/start',
+  auth.requireAuth,
+  auth.requireRole('staff', 'superadmin'),
+  async (req, res) => {
+    try {
+      const room = await scheduling.startScheduledClass(req.params.id, req.user);
+      // Same lifecycle bookkeeping and best-effort admin notification as
+      // an ad-hoc "Start a class" (POST /api/rooms) -- deliberately kept
+      // in sync with that route rather than factored out, since
+      // scheduling.startScheduledClass can't reach index.js's in-memory
+      // room-tracking closures.
+      getLiveRoom(room.id);
+      scheduleTimeLimit(room.id, room.endsAt);
+      scheduleNoShowCheck(room.id);
+      const inviteLink = `${PRIMARY_CLIENT_ORIGIN}/join/${room.id}`;
+      if (emailer.isEmailConfigured()) {
+        auth
+          .listUsers()
+          .then((users) => {
+            const adminEmails = users
+              .filter((u) => u.role === 'superadmin' && u.status === 'approved')
+              .map((u) => u.email);
+            if (adminEmails.length === 0) return;
+            return emailer.sendSessionStartEmail(adminEmails, {
+              hostName: req.user.name,
+              subjectName: null,
+              joinUrl: inviteLink,
+            });
+          })
+          .catch((err) => console.error('[email] session-start notification failed', err));
+      }
+      res.json({ roomId: room.id, inviteLink, endsAt: room.endsAt });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+);
 
 // Issue a LiveKit access token. Requires an approved account. Every
 // participant can publish audio/video/screen-share by default; the

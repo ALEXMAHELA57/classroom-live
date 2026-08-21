@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import App from './App.jsx';
 import JoinRoom from './components/JoinRoom.jsx';
+import Schedule from './components/Schedule.jsx';
+import ScheduledJoin from './components/ScheduledJoin.jsx';
 import Classroom from './components/Classroom.jsx';
 import Login from './components/Login.jsx';
 import Register from './components/Register.jsx';
@@ -46,6 +48,8 @@ function Root() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/join/:roomId" element={<JoinRoom />} />
+        <Route path="/schedule" element={<Schedule />} />
+        <Route path="/scheduled/:id" element={<ScheduledJoin />} />
         <Route path="/room/:roomId" element={<Classroom />} />
         <Route path="/subjects" element={<Subjects />} />
         <Route path="/subjects/:subjectId/syllabus" element={<SyllabusViewer />} />
