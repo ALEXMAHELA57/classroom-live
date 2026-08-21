@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getVisitCount, recordVisit, listPublicEducators, getPublicStats } from '../lib/api.js';
+import { getVisitCount, recordVisit, listPublicEducators, getPublicStats, getPublicUpcomingClasses } from '../lib/api.js';
 
 const FEATURES = [
   {
@@ -64,6 +64,7 @@ export default function Home() {
   const [educators, setEducators] = useState(null);
   const [educatorsError, setEducatorsError] = useState('');
   const [classesLast30Days, setClassesLast30Days] = useState(null);
+  const [upcomingClasses, setUpcomingClasses] = useState(null);
 
   useEffect(() => {
     getVisitCount()
@@ -86,6 +87,10 @@ export default function Home() {
     getPublicStats()
       .then((d) => setClassesLast30Days(d.classesLast30Days))
       .catch(() => {});
+
+    getPublicUpcomingClasses()
+      .then((d) => setUpcomingClasses(d.scheduledClasses))
+      .catch(() => {});
   }, []);
 
   return (
@@ -104,6 +109,7 @@ export default function Home() {
         <div className="home-navbar-inner">
           <div className="home-navbar-links">
             <a href="#top">Home</a>
+            <a href="#upcoming">Upcoming Classes</a>
             <a href="#educators">Find Educators</a>
             <a href="#how-it-works">How it works</a>
             <a href="#about">About us</a>
@@ -150,6 +156,25 @@ export default function Home() {
             ))}
           </ul>
         </div>
+      </section>
+
+      <section className="home-section" id="upcoming">
+        <p className="dashboard-eyebrow home-eyebrow">Upcoming Classes</p>
+        <h2 className="home-section-title">Open sessions anyone can join</h2>
+        {upcomingClasses && upcomingClasses.length === 0 && (
+          <p className="muted">Nothing open to the public scheduled right now &mdash; check back soon.</p>
+        )}
+        {upcomingClasses && upcomingClasses.length > 0 && (
+          <div className="home-upcoming-grid">
+            {upcomingClasses.map((c) => (
+              <Link className="home-upcoming-card" to={`/scheduled/${c.id}`} key={c.id}>
+                <span className="home-upcoming-title">{c.title}</span>
+                <span className="home-upcoming-time">{new Date(c.scheduledAt).toLocaleString()}</span>
+                <span className="home-upcoming-link">Join with link &rarr;</span>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="home-section">

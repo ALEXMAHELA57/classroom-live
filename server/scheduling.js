@@ -131,6 +131,29 @@ export async function listUpcomingFor(user) {
   return rows.map(toPublic);
 }
 
+// Homepage listing for anonymous visitors -- deliberately scoped to
+// only guest-enabled classes. A subject-tied scheduled class is meant
+// for that subject's enrolled students, not the general public, even
+// though nothing technically stops it from being listed here; guest
+// classes are the ones actually intended for outside participation, so
+// those are the only ones safe to advertise to a visitor with no
+// account and no relationship to the school.
+export async function listPublicUpcoming() {
+  const { rows } = await db.query(
+    `${SELECT_BASE}
+     WHERE sc.canceled = false AND sc.room_id IS NULL
+       AND sc.allow_guests = true AND sc.scheduled_at > $1
+     ORDER BY sc.scheduled_at ASC
+     LIMIT 20`,
+    [Date.now()]
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    scheduledAt: Number(r.scheduled_at),
+  }));
+}
+
 export async function cancelScheduledClass(id, actingUser) {
   const raw = await getRaw(id);
   if (!raw) throw new Error('Scheduled class not found');

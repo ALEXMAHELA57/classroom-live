@@ -1213,6 +1213,28 @@ select {
 .home-stat-number { font-family: 'Fraunces', Georgia, serif; font-weight: 700; font-size: 1.9rem; color: #fff; }
 .home-stat-label { font-size: 0.82rem; color: rgba(255, 255, 255, 0.8); }
 
+.home-upcoming-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+.home-upcoming-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 1.25rem 1.4rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  text-decoration: none;
+  transition: border-color 0.12s ease;
+}
+.home-upcoming-card:hover { border-color: var(--chalkboard); }
+.home-upcoming-title { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 1.02rem; color: var(--ink); }
+.home-upcoming-time { font-size: 0.82rem; color: var(--muted); }
+.home-upcoming-link { font-size: 0.82rem; font-weight: 600; color: var(--chalkboard); margin-top: 4px; }
+
 .home-educator-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));

@@ -64,6 +64,11 @@ export async function getPublicScheduledInfo(id) {
   return parseOrThrow(res);
 }
 
+export async function getPublicUpcomingClasses() {
+  const res = await fetch(`${API_BASE}/api/public/scheduled-classes`);
+  return parseOrThrow(res);
+}
+
 export async function getAttendance(roomId) {
   const res = await fetch(`${API_BASE}/api/rooms/${roomId}/attendance`, { headers: authHeaders() });
   return parseOrThrow(res);

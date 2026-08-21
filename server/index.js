@@ -573,6 +573,18 @@ app.get('/api/scheduled-classes', auth.requireAuth, async (req, res) => {
   }
 });
 
+// Deliberately unauthenticated and deliberately narrow -- see
+// scheduling.listPublicUpcoming for why this only ever returns
+// guest-enabled classes, never subject-tied ones.
+app.get('/api/public/scheduled-classes', async (req, res) => {
+  try {
+    res.json({ scheduledClasses: await scheduling.listPublicUpcoming() });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not load upcoming classes' });
+  }
+});
+
 app.delete('/api/scheduled-classes/:id', auth.requireAuth, auth.requireRole('staff', 'superadmin'), async (req, res) => {
   try {
     await scheduling.cancelScheduledClass(req.params.id, req.user);
