@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext.jsx';
 import GoogleButton from './GoogleButton.jsx';
+import logoIcon from '../assets/logo-icon.png';
 
 export default function Login() {
   const { login, loginWithGoogle } = useAuth();
@@ -41,7 +42,7 @@ export default function Login() {
   return (
     <div className="auth-shell">
       <div className="auth-card">
-        <div className="auth-mark">CL</div>
+        <div className="auth-mark"><img src={logoIcon} alt="Classroom Live" /></div>
         <h1>Log in</h1>
         <p className="muted">Welcome back — enter your details to continue.</p>
         <form onSubmit={submit}>

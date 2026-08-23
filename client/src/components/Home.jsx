@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getVisitCount, recordVisit, listPublicEducators, getPublicStats, getPublicUpcomingClasses } from '../lib/api.js';
+import logo from '../assets/logo.png';
 
 const FEATURES = [
   {
@@ -97,11 +98,8 @@ export default function Home() {
     <div className="home">
       <div className="home-masthead">
         <div className="home-masthead-inner">
-          <span className="auth-mark home-mark">CL</span>
-          <div className="home-masthead-text">
-            <span className="home-eyebrow-line">Online teaching platform</span>
-            <span className="home-wordmark">Classroom Live</span>
-          </div>
+          <img src={logo} alt="Classroom Live" className="home-full-logo" />
+          <span className="home-eyebrow-line home-eyebrow-standalone">Online teaching platform</span>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import logoIcon from '../assets/logo-icon.png';
 
 const DISMISS_KEY = 'installPromptDismissedAt';
 const SNOOZE_DAYS = 14;
@@ -75,7 +76,7 @@ export default function InstallPrompt() {
 
   return (
     <div className="install-banner">
-      <div className="install-banner-icon">CL</div>
+      <div className="install-banner-icon"><img src={logoIcon} alt="Classroom Live" /></div>
       <div className="install-banner-body">
         <p className="install-banner-title">Install Classroom Live</p>
         {deferredEvent ? (

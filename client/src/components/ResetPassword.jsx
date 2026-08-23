@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { API_BASE } from '../lib/auth.js';
 import PasswordStrength, { isPasswordValid } from './PasswordStrength.jsx';
+import logoIcon from '../assets/logo-icon.png';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -41,7 +42,7 @@ export default function ResetPassword() {
     return (
       <div className="auth-shell">
         <div className="auth-card">
-          <div className="auth-mark">CL</div>
+          <div className="auth-mark"><img src={logoIcon} alt="Classroom Live" /></div>
           <h1>Invalid link</h1>
           <p className="muted">This reset link is missing its token — try requesting a new one.</p>
           <Link to="/forgot-password">
@@ -56,7 +57,7 @@ export default function ResetPassword() {
     return (
       <div className="auth-shell">
         <div className="auth-card">
-          <div className="auth-mark">CL</div>
+          <div className="auth-mark"><img src={logoIcon} alt="Classroom Live" /></div>
           <h1>Password updated</h1>
           <p className="muted">You can log in with your new password now.</p>
           <button onClick={() => navigate('/login')} style={{ width: '100%' }}>
@@ -70,7 +71,7 @@ export default function ResetPassword() {
   return (
     <div className="auth-shell">
       <div className="auth-card">
-        <div className="auth-mark">CL</div>
+        <div className="auth-mark"><img src={logoIcon} alt="Classroom Live" /></div>
         <h1>Set a new password</h1>
         <form onSubmit={submit}>
           <label htmlFor="password">New password</label>

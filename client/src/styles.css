@@ -906,15 +906,15 @@ select {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: var(--chalkboard);
-  color: var(--paper);
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Fraunces', Georgia, serif;
-  font-weight: 600;
+  padding: 6px;
   margin-bottom: 14px;
 }
+.auth-mark img { width: 100%; height: 100%; object-fit: contain; }
 .auth-card h1 { font-size: 1.5rem; margin-bottom: 4px; }
 .auth-card p.muted { margin-bottom: 1.5rem; }
 .auth-card button[type='submit'] { width: 100%; margin-top: 4px; }
@@ -992,15 +992,13 @@ select {
   width: 36px;
   height: 36px;
   border-radius: 9px;
-  background: rgba(241, 239, 230, 0.12);
-  color: var(--paper);
+  background: var(--paper);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Fraunces', Georgia, serif;
-  font-weight: 600;
-  font-size: 0.9rem;
+  padding: 5px;
 }
+.install-banner-icon img { width: 100%; height: 100%; object-fit: contain; }
 .install-banner-body { flex: 1; min-width: 0; }
 .install-banner-title { margin: 0; font-weight: 600; font-size: 0.92rem; }
 .install-banner-desc { margin: 2px 0 0; font-size: 0.78rem; color: #c7d3cf; line-height: 1.35; }
@@ -1029,8 +1027,7 @@ select {
   align-items: center;
   gap: 14px;
 }
-.home-mark { margin-bottom: 0; width: 40px; height: 40px; font-size: 1rem; flex-shrink: 0; }
-.home-masthead-text { display: flex; flex-direction: column; gap: 2px; }
+.home-full-logo { height: 44px; width: auto; display: block; }
 .home-eyebrow-line {
   font-size: 0.72rem;
   letter-spacing: 0.08em;
@@ -1038,7 +1035,7 @@ select {
   color: var(--muted);
   font-weight: 600;
 }
-.home-wordmark { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 1.3rem; letter-spacing: 0.005em; color: var(--ink); }
+.home-eyebrow-standalone { margin-left: 4px; }
 
 /* Light navbar with a purple active/hover accent, matching the brand
    reference -- unlike the branded purple bars used elsewhere in the

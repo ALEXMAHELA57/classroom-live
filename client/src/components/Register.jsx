@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { register, registerWithGoogle } from '../lib/auth.js';
 import GoogleButton from './GoogleButton.jsx';
 import PasswordStrength, { isPasswordValid } from './PasswordStrength.jsx';
+import logoIcon from '../assets/logo-icon.png';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -43,7 +44,7 @@ export default function Register() {
     return (
       <div className="auth-shell">
         <div className="auth-card">
-          <div className="auth-mark">CL</div>
+          <div className="auth-mark"><img src={logoIcon} alt="Classroom Live" /></div>
           <h1>Account created</h1>
           <p className="muted">
             An admin needs to approve your account before you can log in. Check back soon.
@@ -57,7 +58,7 @@ export default function Register() {
   return (
     <div className="auth-shell">
       <div className="auth-card">
-        <div className="auth-mark">CL</div>
+        <div className="auth-mark"><img src={logoIcon} alt="Classroom Live" /></div>
         <h1>Create an account</h1>
         <p className="muted">A few details and you're set.</p>
         <div className="google-button-wrap">

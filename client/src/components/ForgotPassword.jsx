@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { API_BASE } from '../lib/auth.js';
+import logoIcon from '../assets/logo-icon.png';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -33,7 +34,7 @@ export default function ForgotPassword() {
   return (
     <div className="auth-shell">
       <div className="auth-card">
-        <div className="auth-mark">CL</div>
+        <div className="auth-mark"><img src={logoIcon} alt="Classroom Live" /></div>
         <h1>Reset your password</h1>
         {done ? (
           <>
