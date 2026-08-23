@@ -131,18 +131,17 @@ export async function listUpcomingFor(user) {
   return rows.map(toPublic);
 }
 
-// Homepage listing for anonymous visitors -- deliberately scoped to
-// only guest-enabled classes. A subject-tied scheduled class is meant
-// for that subject's enrolled students, not the general public, even
-// though nothing technically stops it from being listed here; guest
-// classes are the ones actually intended for outside participation, so
-// those are the only ones safe to advertise to a visitor with no
-// account and no relationship to the school.
+// Homepage listing for anonymous visitors. Shows every upcoming class,
+// not just guest-enabled ones -- but only guest-enabled ones get an
+// actual working link out of this (see allowGuests in the returned
+// shape). A subject-tied class still shows its title and time (so
+// visitors can see the school is active), but joining it requires an
+// account and enrollment, so there's nothing for an anonymous visitor
+// to click through to.
 export async function listPublicUpcoming() {
   const { rows } = await db.query(
     `${SELECT_BASE}
-     WHERE sc.canceled = false AND sc.room_id IS NULL
-       AND sc.allow_guests = true AND sc.scheduled_at > $1
+     WHERE sc.canceled = false AND sc.room_id IS NULL AND sc.scheduled_at > $1
      ORDER BY sc.scheduled_at ASC
      LIMIT 20`,
     [Date.now()]
@@ -151,6 +150,7 @@ export async function listPublicUpcoming() {
     id: r.id,
     title: r.title,
     scheduledAt: Number(r.scheduled_at),
+    allowGuests: Boolean(r.allow_guests),
   }));
 }
 

@@ -1231,6 +1231,7 @@ select {
   transition: border-color 0.12s ease;
 }
 .home-upcoming-card:hover { border-color: var(--chalkboard); }
+.home-upcoming-card-static { opacity: 0.85; }
 .home-upcoming-title { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 1.02rem; color: var(--ink); }
 .home-upcoming-time { font-size: 0.82rem; color: var(--muted); }
 .home-upcoming-link { font-size: 0.82rem; font-weight: 600; color: var(--chalkboard); margin-top: 4px; }
