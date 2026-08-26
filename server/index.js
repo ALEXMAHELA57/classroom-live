@@ -869,6 +869,20 @@ app.get('/api/students', auth.requireAuth, auth.requireRole('staff', 'superadmin
 // ever exposes a name and the subjects that staff member has created,
 // and only for staff whose account is still approved. An educator with
 // zero subjects created yet doesn't show up -- nothing to find.
+// Public list of courses/subjects offered on the platform, for the
+// homepage. Distinct names only -- if two different teachers each
+// created a subject called "English Language", the homepage should
+// show that course once, not once per teacher.
+app.get('/api/public/courses', async (req, res) => {
+  try {
+    const { rows } = await db.query('SELECT DISTINCT name FROM subjects ORDER BY name');
+    res.json({ courses: rows.map((r) => r.name) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not load courses' });
+  }
+});
+
 app.get('/api/public/educators', async (req, res) => {
   try {
     // Combines primary teachers (subjects.staff_id) with co-teachers

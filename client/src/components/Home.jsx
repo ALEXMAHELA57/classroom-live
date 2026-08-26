@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getVisitCount, recordVisit, listPublicEducators, getPublicStats, getPublicUpcomingClasses } from '../lib/api.js';
+import { getVisitCount, recordVisit, listPublicCourses, getPublicStats, getPublicUpcomingClasses } from '../lib/api.js';
 import logo from '../assets/logo.png';
 
 const FEATURES = [
@@ -50,7 +50,7 @@ const TRUST_BADGES = ['Verified Educators', 'Live Interactive Classes', 'Safe & 
 
 const HOW_IT_WORKS = [
   { step: '1', title: 'Create a free account', desc: 'Sign up as a student in under a minute.' },
-  { step: '2', title: 'Find your educator', desc: 'Browse educators and the subjects they teach.' },
+  { step: '2', title: 'Find your course', desc: 'Browse our courses and the educators who teach them.' },
   { step: '3', title: 'Join a live class', desc: 'Meet live, ask questions, and learn in real time.' },
   { step: '4', title: 'Track your progress', desc: 'Quizzes, assignments, and recordings, all in one place.' },
 ];
@@ -62,8 +62,8 @@ const VISIT_FLAG = 'clv-visited';
 
 export default function Home() {
   const [visitCount, setVisitCount] = useState(null);
-  const [educators, setEducators] = useState(null);
-  const [educatorsError, setEducatorsError] = useState('');
+  const [courses, setCourses] = useState(null);
+  const [coursesError, setCoursesError] = useState('');
   const [classesLast30Days, setClassesLast30Days] = useState(null);
   const [upcomingClasses, setUpcomingClasses] = useState(null);
 
@@ -81,9 +81,9 @@ export default function Home() {
         .catch(() => {});
     }
 
-    listPublicEducators()
-      .then((d) => setEducators(d.educators))
-      .catch((err) => setEducatorsError(err.message));
+    listPublicCourses()
+      .then((d) => setCourses(d.courses))
+      .catch((err) => setCoursesError(err.message));
 
     getPublicStats()
       .then((d) => setClassesLast30Days(d.classesLast30Days))
@@ -108,7 +108,7 @@ export default function Home() {
           <div className="home-navbar-links">
             <a href="#top">Home</a>
             <a href="#upcoming">Upcoming Classes</a>
-            <a href="#educators">Find Educators</a>
+            <a href="#courses">Courses</a>
             <a href="#how-it-works">How it works</a>
             <a href="#about">About us</a>
             <a href="#contact">Contact us</a>
@@ -195,21 +195,21 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="home-section" id="educators">
-        <p className="dashboard-eyebrow home-eyebrow">Find Educators</p>
-        <h2 className="home-section-title">Educators currently teaching on Classroom Live</h2>
-        {educatorsError && <p className="muted">{educatorsError}</p>}
-        {educators && educators.length === 0 && (
+      <section className="home-section" id="courses">
+        <p className="dashboard-eyebrow home-eyebrow">Courses</p>
+        <h2 className="home-section-title">Courses we offer</h2>
+        {coursesError && <p className="muted">{coursesError}</p>}
+        {courses && courses.length === 0 && (
           <p className="muted">
-            No educators have listed subjects yet &mdash; check back soon, or{' '}
+            No courses listed yet &mdash; check back soon, or{' '}
             <Link to="/register">create an account</Link> to be notified when classes open up.
           </p>
         )}
-        {educators && educators.length > 0 && (
+        {courses && courses.length > 0 && (
           <div className="home-educator-grid">
-            {educators.map((e) => (
-              <div className="home-educator-card" key={e.id}>
-                <span className="home-educator-name">{e.name}</span>
+            {courses.map((name) => (
+              <div className="home-educator-card" key={name}>
+                <span className="home-educator-name">{name}</span>
               </div>
             ))}
           </div>

@@ -546,6 +546,11 @@ export async function listPublicEducators() {
   return parseOrThrow(res);
 }
 
+export async function listPublicCourses() {
+  const res = await fetch(`${API_BASE}/api/public/courses`);
+  return parseOrThrow(res);
+}
+
 export async function getPublicStats() {
   const res = await fetch(`${API_BASE}/api/public/stats`);
   return parseOrThrow(res);
