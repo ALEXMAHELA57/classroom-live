@@ -167,7 +167,10 @@ export default function Schedule() {
         {scheduledClasses.length === 0 && <p className="muted">Nothing scheduled yet.</p>}
         {scheduledClasses.map((sc) => (
           <div className="card subject-card" key={sc.id}>
-            <p style={{ fontWeight: 600, marginBottom: 4 }}>{sc.title}</p>
+            <p style={{ fontWeight: 600, marginBottom: 4 }}>
+              {sc.title}
+              {sc.isLive && <span className="home-upcoming-live-badge">Live now</span>}
+            </p>
             <p className="muted" style={{ fontSize: '0.85rem' }}>
               {new Date(sc.scheduledAt).toLocaleString()}
               {sc.subjectName && ` — ${sc.subjectName}`}
@@ -176,12 +179,18 @@ export default function Schedule() {
             </p>
             {isHost && sc.hostUserId === user.id && (
               <div className="admin-create-form">
-                <button onClick={() => start(sc.id)} disabled={startingId === sc.id}>
-                  {startingId === sc.id ? 'Starting…' : 'Start now'}
-                </button>
-                <button className="ghost" onClick={() => cancel(sc.id)}>
-                  Cancel
-                </button>
+                {sc.isLive ? (
+                  <button onClick={() => navigate(`/room/${sc.roomId}`)}>Join</button>
+                ) : (
+                  <button onClick={() => start(sc.id)} disabled={startingId === sc.id}>
+                    {startingId === sc.id ? 'Starting…' : 'Start now'}
+                  </button>
+                )}
+                {!sc.isLive && (
+                  <button className="ghost" onClick={() => cancel(sc.id)}>
+                    Cancel
+                  </button>
+                )}
                 <button
                   className="ghost"
                   onClick={() => {
@@ -190,6 +199,11 @@ export default function Schedule() {
                 >
                   Copy invite link
                 </button>
+              </div>
+            )}
+            {sc.isLive && !(isHost && sc.hostUserId === user.id) && (
+              <div className="admin-create-form">
+                <button onClick={() => navigate(`/room/${sc.roomId}`)}>Join</button>
               </div>
             )}
           </div>

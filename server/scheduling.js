@@ -15,16 +15,20 @@ function toPublic(row) {
     durationMinutes: row.duration_minutes ? Number(row.duration_minutes) : null,
     allowGuests: Boolean(row.allow_guests),
     roomId: row.room_id || null,
+    // Started but not yet ended -- still worth showing in "upcoming"
+    // (really "not finished yet") so people can still find the link.
+    isLive: Boolean(row.room_id) && row.room_ended === false,
     canceled: row.canceled,
     createdAt: Number(row.created_at),
   };
 }
 
 const SELECT_BASE = `
-  SELECT sc.*, u.name AS host_name, s.name AS subject_name
+  SELECT sc.*, u.name AS host_name, s.name AS subject_name, r.ended AS room_ended
   FROM scheduled_classes sc
   JOIN users u ON u.id = sc.host_user_id
   LEFT JOIN subjects s ON s.id = sc.subject_id
+  LEFT JOIN rooms r ON r.id = sc.room_id
 `;
 
 async function getRaw(id) {
@@ -106,7 +110,11 @@ export async function createScheduledClass({
 // directly with whoever needs it.
 export async function listUpcomingFor(user) {
   let rows;
-  const notCanceledAndUpcoming = 'sc.canceled = false AND sc.room_id IS NULL';
+  // "Upcoming" really means "not finished yet" -- a class that's
+  // started but still going should keep showing, not vanish the moment
+  // someone clicks Start. Only room_ended = true (or never started at
+  // all) should actually be hidden.
+  const notCanceledAndUpcoming = 'sc.canceled = false AND (sc.room_id IS NULL OR r.ended = false)';
   if (user.role === 'superadmin') {
     ({ rows } = await db.query(
       `${SELECT_BASE} WHERE ${notCanceledAndUpcoming} ORDER BY sc.scheduled_at ASC`
@@ -141,7 +149,9 @@ export async function listUpcomingFor(user) {
 export async function listPublicUpcoming() {
   const { rows } = await db.query(
     `${SELECT_BASE}
-     WHERE sc.canceled = false AND sc.room_id IS NULL AND sc.scheduled_at > $1
+     WHERE sc.canceled = false
+       AND (sc.room_id IS NULL OR r.ended = false)
+       AND (sc.scheduled_at > $1 OR sc.room_id IS NOT NULL)
      ORDER BY sc.scheduled_at ASC
      LIMIT 20`,
     [Date.now()]
@@ -151,6 +161,7 @@ export async function listPublicUpcoming() {
     title: r.title,
     scheduledAt: Number(r.scheduled_at),
     allowGuests: Boolean(r.allow_guests),
+    isLive: Boolean(r.room_id) && r.room_ended === false,
   }));
 }
 

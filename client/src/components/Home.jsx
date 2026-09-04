@@ -167,13 +167,19 @@ export default function Home() {
             {upcomingClasses.map((c) =>
               c.allowGuests ? (
                 <Link className="home-upcoming-card" to={`/scheduled/${c.id}`} key={c.id}>
-                  <span className="home-upcoming-title">{c.title}</span>
+                  <span className="home-upcoming-title">
+                    {c.title}
+                    {c.isLive && <span className="home-upcoming-live-badge">Live now</span>}
+                  </span>
                   <span className="home-upcoming-time">{new Date(c.scheduledAt).toLocaleString()}</span>
                   <span className="home-upcoming-link">Join with link &rarr;</span>
                 </Link>
               ) : (
                 <Link className="home-upcoming-card home-upcoming-card-static" to="/login" key={c.id}>
-                  <span className="home-upcoming-title">{c.title}</span>
+                  <span className="home-upcoming-title">
+                    {c.title}
+                    {c.isLive && <span className="home-upcoming-live-badge">Live now</span>}
+                  </span>
                   <span className="home-upcoming-time">{new Date(c.scheduledAt).toLocaleString()}</span>
                   <span className="home-upcoming-link muted">Log in to join &rarr;</span>
                 </Link>
