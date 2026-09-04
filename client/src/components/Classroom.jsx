@@ -221,11 +221,18 @@ export default function Classroom() {
   // and claim the same slot via upsertTile above, so a normal swap
   // never touches the grid at all — only a track that's actually gone
   // (participant left, camera turned off) ends up removed.
+  //
+  // 1800ms, not 600ms: the camera-reacquire path (applyCameraStateInner)
+  // has its own ~250ms settle delay before even requesting the new
+  // camera, on top of the actual publish round-trip to the LiveKit
+  // server — on a slower connection that total can run past 600ms,
+  // which let the grace period expire and the grid-reflow symptom
+  // resurface intermittently. This leaves much more headroom.
   function scheduleRemoveTile(sid) {
     const timeoutId = setTimeout(() => {
       removeTile(sid);
       pendingRemovalsRef.current.delete(sid);
-    }, 600);
+    }, 1800);
     pendingRemovalsRef.current.set(sid, timeoutId);
   }
 
