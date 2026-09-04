@@ -110,30 +110,53 @@ export async function createScheduledClass({
 // directly with whoever needs it.
 export async function listUpcomingFor(user) {
   let rows;
-  // "Upcoming" really means "not finished yet" -- a class that's
-  // started but still going should keep showing, not vanish the moment
-  // someone clicks Start. Only room_ended = true (or never started at
-  // all) should actually be hidden.
-  const notCanceledAndUpcoming = 'sc.canceled = false AND (sc.room_id IS NULL OR r.ended = false)';
+  const now = Date.now();
+  const staleCutoff = now - 24 * 60 * 60 * 1000; // 24 hours
+  // "Upcoming" means: genuinely still ahead of us (not started, and its
+  // time hasn't passed), OR started recently and still going. Without
+  // the staleCutoff half of this, a class started with no time limit
+  // whose host just closed the tab (never explicitly clicking "End",
+  // and no time-limit auto-end to catch it) stays room.ended = false
+  // forever and would keep showing up indefinitely, however old it is.
+  // Without the scheduled_at check on the not-yet-started half, a
+  // class whose time came and went without ever being started would
+  // linger the same way.
   if (user.role === 'superadmin') {
     ({ rows } = await db.query(
-      `${SELECT_BASE} WHERE ${notCanceledAndUpcoming} ORDER BY sc.scheduled_at ASC`
+      `${SELECT_BASE}
+       WHERE sc.canceled = false
+         AND (
+           (sc.room_id IS NULL AND sc.scheduled_at > $1)
+           OR (sc.room_id IS NOT NULL AND r.ended = false AND r.created_at > $2)
+         )
+       ORDER BY sc.scheduled_at ASC`,
+      [now, staleCutoff]
     ));
   } else if (user.role === 'staff') {
     ({ rows } = await db.query(
       `${SELECT_BASE}
        LEFT JOIN subject_teachers st ON st.subject_id = sc.subject_id
-       WHERE ${notCanceledAndUpcoming} AND (sc.host_user_id = $1 OR st.staff_id = $1)
+       WHERE sc.canceled = false
+         AND (
+           (sc.room_id IS NULL AND sc.scheduled_at > $2)
+           OR (sc.room_id IS NOT NULL AND r.ended = false AND r.created_at > $3)
+         )
+         AND (sc.host_user_id = $1 OR st.staff_id = $1)
        ORDER BY sc.scheduled_at ASC`,
-      [user.id]
+      [user.id, now, staleCutoff]
     ));
   } else {
     ({ rows } = await db.query(
       `${SELECT_BASE}
        JOIN subject_enrollments se ON se.subject_id = sc.subject_id
-       WHERE ${notCanceledAndUpcoming} AND se.student_id = $1
+       WHERE sc.canceled = false
+         AND (
+           (sc.room_id IS NULL AND sc.scheduled_at > $2)
+           OR (sc.room_id IS NOT NULL AND r.ended = false AND r.created_at > $3)
+         )
+         AND se.student_id = $1
        ORDER BY sc.scheduled_at ASC`,
-      [user.id]
+      [user.id, now, staleCutoff]
     ));
   }
   return rows.map(toPublic);
@@ -147,14 +170,18 @@ export async function listUpcomingFor(user) {
 // account and enrollment, so there's nothing for an anonymous visitor
 // to click through to.
 export async function listPublicUpcoming() {
+  const now = Date.now();
+  const staleCutoff = now - 24 * 60 * 60 * 1000; // 24 hours
   const { rows } = await db.query(
     `${SELECT_BASE}
      WHERE sc.canceled = false
-       AND (sc.room_id IS NULL OR r.ended = false)
-       AND (sc.scheduled_at > $1 OR sc.room_id IS NOT NULL)
+       AND (
+         (sc.room_id IS NULL AND sc.scheduled_at > $1)
+         OR (sc.room_id IS NOT NULL AND r.ended = false AND r.created_at > $2)
+       )
      ORDER BY sc.scheduled_at ASC
      LIMIT 20`,
-    [Date.now()]
+    [now, staleCutoff]
   );
   return rows.map((r) => ({
     id: r.id,
