@@ -34,6 +34,25 @@ export default function SelfRecorder({ onRecorded }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Explicitly re-attaches the stream to the <video> element. Needed
+  // after mutating an already-playing stream's tracks (flip, turning
+  // the camera back on) — the effect above only re-runs when `stream`
+  // itself changes reference, but flip/toggleCam mutate the SAME
+  // stream object in place, so that effect never re-fires. Desktop
+  // browsers generally keep rendering a mutated live stream without
+  // this, but mobile browsers (both iOS and Android observed) don't
+  // reliably pick up a swapped track that way — the swap succeeds in
+  // JS with no error, but the picture just freezes on the old camera,
+  // which is exactly what looked like "flip doesn't work."
+  function refreshVideoElement() {
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+      // eslint-disable-next-line no-self-assign
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(() => {});
+    }
+  }
+
   async function startPreview() {
     setError('');
     try {
@@ -86,6 +105,7 @@ export default function SelfRecorder({ onRecorded }) {
       const [track] = camStream.getVideoTracks();
       stream.addTrack(track);
       setCamOn(true);
+      refreshVideoElement();
     } catch (err) {
       setError(`Could not turn camera back on: ${err.message || err.name}`);
     }
@@ -110,7 +130,7 @@ export default function SelfRecorder({ onRecorded }) {
     // Brief settle delay — same reasoning as the classroom zoom fix:
     // even releasing a *different* camera can leave the device's shared
     // camera subsystem briefly locked on some phones.
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 400));
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: nextFacing },
@@ -118,6 +138,7 @@ export default function SelfRecorder({ onRecorded }) {
       const [newTrack] = newStream.getVideoTracks();
       stream.addTrack(newTrack);
       setFacingMode(nextFacing);
+      refreshVideoElement();
     } catch (err) {
       setError(`Could not switch camera: ${err.message || err.name}`);
       // We already stopped the old track, so the preview would

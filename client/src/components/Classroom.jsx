@@ -580,7 +580,7 @@ export default function Classroom() {
     // getUserMedia calls — a brief settle delay here is cheap insurance
     // for the remaining cases that do need a fresh acquisition (first
     // turn-on, quality change, facing change).
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await new Promise((resolve) => setTimeout(resolve, 400));
 
     if (zoom > 1) {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -683,7 +683,15 @@ export default function Classroom() {
     const nextFacing = facingMode === 'environment' ? 'user' : 'environment';
     try {
       if (digitalZoom > 1) {
-        rawStreamRef.current?.getTracks().forEach((t) => t.stop());
+        // Same hardware-release race as everywhere else in this file:
+        // stopping a camera stream and immediately requesting a new one
+        // (even a different-facing one) can silently fail or hang on
+        // many phones. Every other camera-reacquisition path here has a
+        // settle delay for exactly this reason — this one didn't, which
+        // is why flipping while zoomed could leave the picture frozen
+        // with nothing to show until a full page reload reset things.
+        stopRawCapture();
+        await new Promise((resolve) => setTimeout(resolve, 400));
         const preset = VIDEO_QUALITY_PRESETS[videoQuality];
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
@@ -695,6 +703,7 @@ export default function Classroom() {
         rawStreamRef.current = stream;
         hiddenVideoRef.current.srcObject = stream;
         await hiddenVideoRef.current.play().catch(() => {});
+        zoomAnimRef.current = requestAnimationFrame(drawZoomFrame);
       } else {
         const room = roomRef.current;
         const publication = room?.localParticipant.getTrackPublication(Track.Source.Camera);
