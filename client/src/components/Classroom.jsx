@@ -451,29 +451,21 @@ export default function Classroom() {
 
       // Only crop by the zoom factor itself, centered on the source's
       // own native frame — never trim to match the canvas's aspect
-      // ratio. Previously this also did a "cover" crop to force the
-      // source into the canvas's 16:9 shape, which silently cut off
-      // the top/bottom of any camera whose native sensor isn't 16:9
-      // (common — many laptop webcams are 4:3), even before any zoom
-      // was applied. Letterboxing (below) keeps the whole picture
-      // instead of trimming it.
+      // ratio, so nothing beyond the deliberate zoom is ever lost.
       const cropW = vw / zoom;
       const cropH = vh / zoom;
       const sx = (vw - cropW) / 2;
       const sy = (vh - cropH) / 2;
 
-      // Fit that crop onto the canvas without distorting or cropping
-      // further — "contain" scaling, centered, with letterbox bars
-      // filling whatever space is left over on the shorter axis.
-      const scale = Math.min(canvas.width / cropW, canvas.height / cropH);
-      const drawW = cropW * scale;
-      const drawH = cropH * scale;
-      const dx = (canvas.width - drawW) / 2;
-      const dy = (canvas.height - drawH) / 2;
-
-      ctx.fillStyle = 'black';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(video, sx, sy, cropW, cropH, dx, dy, drawW, drawH);
+      // Stretch that crop to fill the entire canvas — chosen over both
+      // alternatives after feedback on each: a "cover" crop (fill the
+      // frame, trim excess) was cutting off top/bottom on non-16:9
+      // cameras; "contain" scaling (show everything, letterbox the
+      // rest) read as the picture shrinking. This fills the frame and
+      // crops nothing beyond the zoom itself, at the cost of a slight
+      // non-uniform stretch when the camera's native aspect doesn't
+      // exactly match the canvas's.
+      ctx.drawImage(video, sx, sy, cropW, cropH, 0, 0, canvas.width, canvas.height);
     }
     zoomAnimRef.current = requestAnimationFrame(drawZoomFrame);
   }
