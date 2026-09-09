@@ -449,22 +449,33 @@ export default function Classroom() {
       const vw = video.videoWidth;
       const vh = video.videoHeight;
 
-      // Only crop by the zoom factor itself, centered on the source's
-      // own native frame — never trim to match the canvas's aspect
-      // ratio, so nothing beyond the deliberate zoom is ever lost.
-      const cropW = vw / zoom;
-      const cropH = vh / zoom;
-      const sx = (vw - cropW) / 2;
-      const sy = (vh - cropH) / 2;
+      // First crop to match the canvas's own aspect ratio (a "cover"
+      // crop) -- this is what makes zoom apply symmetrically in both
+      // directions. Skipping this step (stretching a mismatched-aspect
+      // crop directly onto the canvas) meant the horizontal and
+      // vertical stretch factors differed, so zooming looked like it
+      // was only happening horizontally -- the vertical change was
+      // real but comparatively tiny. This pre-crop is fixed regardless
+      // of zoom level; only the SECOND crop below changes with zoom.
+      const targetAspect = canvas.width / canvas.height;
+      const sourceAspect = vw / vh;
+      let baseW = vw;
+      let baseH = vh;
+      if (sourceAspect > targetAspect) {
+        baseW = vh * targetAspect; // source is relatively wider — trim the sides
+      } else {
+        baseH = vw / targetAspect; // source is relatively taller — trim top/bottom
+      }
+      const baseX = (vw - baseW) / 2;
+      const baseY = (vh - baseH) / 2;
 
-      // Stretch that crop to fill the entire canvas — chosen over both
-      // alternatives after feedback on each: a "cover" crop (fill the
-      // frame, trim excess) was cutting off top/bottom on non-16:9
-      // cameras; "contain" scaling (show everything, letterbox the
-      // rest) read as the picture shrinking. This fills the frame and
-      // crops nothing beyond the zoom itself, at the cost of a slight
-      // non-uniform stretch when the camera's native aspect doesn't
-      // exactly match the canvas's.
+      // Now crop that already-aspect-matched region by the zoom factor
+      // — since it's already the right shape, this crop (and the
+      // uniform scale-up onto the canvas below) never distorts.
+      const cropW = baseW / zoom;
+      const cropH = baseH / zoom;
+      const sx = baseX + (baseW - cropW) / 2;
+      const sy = baseY + (baseH - cropH) / 2;
       ctx.drawImage(video, sx, sy, cropW, cropH, 0, 0, canvas.width, canvas.height);
     }
     zoomAnimRef.current = requestAnimationFrame(drawZoomFrame);
