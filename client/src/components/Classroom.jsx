@@ -520,6 +520,31 @@ export default function Classroom() {
     return run;
   }
 
+  // The camera's own natural orientation (portrait when a phone is held
+  // upright, landscape on most webcams) doesn't necessarily match the
+  // fixed landscape preset resolution requested as an "ideal" constraint
+  // below. On Android Chrome especially, asking for that literal
+  // landscape width/height (unlike the direct LiveKit-managed 1x path,
+  // which doesn't force this) makes the browser hand back an actually
+  // landscape-cropped frame even while the phone is held upright.
+  // Publishing that landscape frame at a portrait-oriented target
+  // squashed the visible picture into a thin horizontal strip that grew
+  // *more* squashed as zoom increased — which looked like "zoom only
+  // works horizontally," when the real issue was the capture itself
+  // silently switching orientation the moment zoom turned on. Sizing the
+  // canvas to the camera's own actual aspect ratio (scaled to roughly
+  // the same pixel budget as the preset, for bitrate/quality parity)
+  // keeps the published video in whatever orientation the camera is
+  // really capturing, matching the non-zoomed path's behavior.
+  function sizeCanvasToVideo(canvas, video, preset) {
+    const vw = video.videoWidth || preset.resolution.width;
+    const vh = video.videoHeight || preset.resolution.height;
+    const longEdge = Math.max(preset.resolution.width, preset.resolution.height);
+    const scale = longEdge / Math.max(vw, vh);
+    canvas.width = Math.round(vw * scale);
+    canvas.height = Math.round(vh * scale);
+  }
+
   async function applyCameraStateInner({ fm = facingMode, quality = videoQuality, zoom = digitalZoom } = {}) {
     const room = roomRef.current;
     if (!room) return;
@@ -600,8 +625,7 @@ export default function Classroom() {
       await video.play().catch(() => {});
 
       const canvas = zoomCanvasRef.current;
-      canvas.width = preset.resolution.width;
-      canvas.height = preset.resolution.height;
+      sizeCanvasToVideo(canvas, video, preset);
 
       zoomAnimRef.current = requestAnimationFrame(drawZoomFrame);
 
@@ -706,6 +730,7 @@ export default function Classroom() {
         rawStreamRef.current = stream;
         hiddenVideoRef.current.srcObject = stream;
         await hiddenVideoRef.current.play().catch(() => {});
+        sizeCanvasToVideo(zoomCanvasRef.current, hiddenVideoRef.current, preset);
         zoomAnimRef.current = requestAnimationFrame(drawZoomFrame);
       } else {
         const room = roomRef.current;
