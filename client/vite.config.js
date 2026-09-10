@@ -7,6 +7,16 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // registerType: 'autoUpdate' only takes effect if the app actually
+      // calls registerSW() from 'virtual:pwa-register' (see main.jsx).
+      // Without this flag, Vite still auto-injects its own bare-bones
+      // registerSW.js, which just registers the worker and never checks
+      // for or applies updates — meaning deployed fixes never reached
+      // already-open/installed instances of the app no matter how many
+      // times you closed and reopened it. Disabling the auto-injected
+      // script forces main.jsx's real registerSW() call to be the one
+      // that actually runs.
+      injectRegister: false,
       // Without these, a new deploy's service worker installs but sits
       // "waiting" until every open tab of the site is fully closed —
       // until then, the OLD service worker keeps intercepting every

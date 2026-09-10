@@ -1,3 +1,4 @@
+import { registerSW } from 'virtual:pwa-register';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -85,6 +86,14 @@ function Root() {
     </AuthProvider>
   );
 }
+
+// Actually makes registerType: 'autoUpdate' (vite.config.js) do what it
+// says — checks for a new service worker and reloads to it automatically.
+// Without this call, vite-plugin-pwa falls back to a bare-bones
+// auto-injected script that only registers the worker and never updates
+// it, which is why deployed fixes weren't reaching already-open or
+// installed instances of the app.
+registerSW({ immediate: true });
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
