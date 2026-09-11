@@ -545,6 +545,29 @@ export default function Classroom() {
     canvas.height = Math.round(vh * scale);
   }
 
+  // Some Android devices — especially switching between the front and
+  // back sensor — need noticeably more than one fixed settle delay
+  // before the camera hardware is actually free again. A single 400ms
+  // wait wasn't enough on those devices and surfaced as "Couldn't access
+  // the camera — it may be in use by another app" (NotReadableError),
+  // permanently failing the flip instead of just needing another moment.
+  // Retrying with a progressively longer wait recovers from this
+  // automatically — a fixed one-shot delay can't adapt to how long a
+  // given device's camera HAL actually takes to release the hardware.
+  async function getCameraStreamWithRetry(constraints, attempts = 3) {
+    let lastErr;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (err) {
+        lastErr = err;
+        if (err?.name !== 'NotReadableError' || i === attempts - 1) throw err;
+        await new Promise((resolve) => setTimeout(resolve, 500 * (i + 1)));
+      }
+    }
+    throw lastErr;
+  }
+
   async function applyCameraStateInner({ fm = facingMode, quality = videoQuality, zoom = digitalZoom } = {}) {
     const room = roomRef.current;
     if (!room) return;
@@ -611,7 +634,7 @@ export default function Classroom() {
     await new Promise((resolve) => setTimeout(resolve, 400));
 
     if (zoom > 1) {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await getCameraStreamWithRetry({
         video: {
           facingMode: fm,
           width: { ideal: preset.resolution.width },
@@ -720,7 +743,7 @@ export default function Classroom() {
         stopRawCapture();
         await new Promise((resolve) => setTimeout(resolve, 400));
         const preset = VIDEO_QUALITY_PRESETS[videoQuality];
-        const stream = await navigator.mediaDevices.getUserMedia({
+        const stream = await getCameraStreamWithRetry({
           video: {
             facingMode: nextFacing,
             width: { ideal: preset.resolution.width },
