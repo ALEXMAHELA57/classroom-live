@@ -1,5 +1,6 @@
 import { nanoid } from 'nanoid';
 import * as db from './db.js';
+import * as s3 from './s3.js';
 
 // `filename` stores the R2 object key (e.g. "self-recordings/abc123-clip.webm"),
 // not a local disk path -- see server/index.js upload route.
@@ -20,7 +21,8 @@ export async function listForStudent(studentId) {
      WHERE sr.student_id = $1 ORDER BY sr.created_at DESC`,
     [studentId]
   );
-  return rows.map(toPublic);
+  const available = await availabilityById(rows);
+  return rows.map((r) => ({ ...toPublic(r), available: available[r.id] }));
 }
 
 export async function listSharedWithStaff(staffId) {
@@ -30,7 +32,8 @@ export async function listSharedWithStaff(staffId) {
      WHERE sr.shared_with_staff_id = $1 ORDER BY sr.shared_at DESC`,
     [staffId]
   );
-  return rows.map((r) => ({ ...toPublic(r), studentName: r.student_name }));
+  const available = await availabilityById(rows);
+  return rows.map((r) => ({ ...toPublic(r), studentName: r.student_name, available: available[r.id] }));
 }
 
 // A superadmin isn't "the staff member it was shared with" for any
@@ -48,7 +51,13 @@ export async function listAllShared() {
      WHERE sr.shared_with_staff_id IS NOT NULL
      ORDER BY sr.shared_at DESC`
   );
-  return rows.map((r) => ({ ...toPublic(r), studentName: r.student_name, staffName: r.staff_name }));
+  const available = await availabilityById(rows);
+  return rows.map((r) => ({
+    ...toPublic(r),
+    studentName: r.student_name,
+    staffName: r.staff_name,
+    available: available[r.id],
+  }));
 }
 
 async function getRaw(recordingId) {
@@ -147,7 +156,8 @@ export async function listSharedWithStudent(studentId) {
      WHERE rs.shared_with_id = $1 ORDER BY rs.shared_at DESC`,
     [studentId]
   );
-  return rows.map((r) => ({ ...toPublic(r), creatorName: r.creator_name }));
+  const available = await availabilityById(rows);
+  return rows.map((r) => ({ ...toPublic(r), creatorName: r.creator_name, available: available[r.id] }));
 }
 
 // A student can only share their own recording, and only to one staff
@@ -211,4 +221,19 @@ function toPublic(r) {
     sharedWithName: r.shared_with_name || null,
     sharedAt: r.shared_at ? Number(r.shared_at) : null,
   };
+}
+
+// Recordings from before the R2 storage migration (or any that were
+// otherwise lost) fail with "no longer available" only once someone
+// actually clicks Download — and that error appeared as a single
+// page-level banner with no indication of which row it was even about.
+// Checking existence up front, at list time, lets the UI mark broken
+// recordings inline instead of the person having to click each one to
+// find out. Keyed by recording id so callers can attach `available` to
+// whatever public shape they've already built.
+async function availabilityById(rows) {
+  const entries = await Promise.all(
+    rows.map(async (r) => [r.id, await s3.objectExists(r.filename)])
+  );
+  return Object.fromEntries(entries);
 }

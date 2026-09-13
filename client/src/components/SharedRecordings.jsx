@@ -71,9 +71,15 @@ export default function SharedRecordings() {
                   {r.staffName && <td>{r.staffName}</td>}
                   <td>{new Date(r.sharedAt).toLocaleString()}</td>
                   <td>
-                    <button className="ghost" onClick={() => download(r.id)}>
-                      Download
-                    </button>
+                    {r.available === false ? (
+                      <span className="badge badge-unavailable" title="This recording was made before storage was upgraded and is no longer available.">
+                        Unavailable
+                      </span>
+                    ) : (
+                      <button className="ghost" onClick={() => download(r.id)}>
+                        Download
+                      </button>
+                    )}
                     <button className="ghost" onClick={() => unshare(r.id)}>
                       Unshare
                     </button>
