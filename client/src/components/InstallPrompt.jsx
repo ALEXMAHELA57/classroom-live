@@ -30,6 +30,7 @@ export default function InstallPrompt() {
   const [deferredEvent, setDeferredEvent] = useState(null);
   const [showIosHelp, setShowIosHelp] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [fading, setFading] = useState(false);
 
   useEffect(() => {
     if (isStandalone() || recentlyDismissed()) return;
@@ -60,6 +61,24 @@ export default function InstallPrompt() {
     };
   }, []);
 
+  // Auto-hide after a few seconds instead of sitting on screen until the
+  // person taps Install or Not now — this doesn't count as a real
+  // dismissal (no localStorage snooze), it just clears the banner off
+  // the screen for this visit; it can show again on a later visit.
+  // Fades out first rather than popping away instantly, so it doesn't
+  // look like a UI glitch.
+  useEffect(() => {
+    if (!deferredEvent && !showIosHelp) return;
+    const autoHideTimer = setTimeout(() => setFading(true), 6000);
+    return () => clearTimeout(autoHideTimer);
+  }, [deferredEvent, showIosHelp]);
+
+  useEffect(() => {
+    if (!fading) return;
+    const removeTimer = setTimeout(() => setDismissed(true), 300);
+    return () => clearTimeout(removeTimer);
+  }, [fading]);
+
   function dismiss() {
     localStorage.setItem(DISMISS_KEY, String(Date.now()));
     setDismissed(true);
@@ -75,7 +94,7 @@ export default function InstallPrompt() {
   if (dismissed || (!deferredEvent && !showIosHelp)) return null;
 
   return (
-    <div className="install-banner">
+    <div className={`install-banner${fading ? ' install-banner--fading' : ''}`}>
       <div className="install-banner-icon"><img src={logoIcon} alt="Classroom Live" /></div>
       <div className="install-banner-body">
         <p className="install-banner-title">Install Classroom Live</p>
