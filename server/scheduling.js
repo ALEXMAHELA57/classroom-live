@@ -3,6 +3,15 @@ import * as db from './db.js';
 import * as subjects from './subjects.js';
 import * as roomsRepo from './rooms.js';
 
+// A scheduled class that's never been started (no room_id yet) used to
+// drop out of "upcoming" the instant its scheduled time passed, even by
+// a minute -- a host running two minutes late would find their own
+// class had already vanished from the list before they could even
+// click Start. Giving it an hour of grace past the scheduled time
+// before it disappears leaves room for exactly that, while a class
+// still not started an hour late is genuinely stale and should go.
+const NOT_STARTED_GRACE_MS = 60 * 60 * 1000;
+
 function toPublic(row) {
   return {
     id: row.id,
@@ -112,6 +121,7 @@ export async function listUpcomingFor(user) {
   let rows;
   const now = Date.now();
   const staleCutoff = now - 24 * 60 * 60 * 1000; // 24 hours
+  const notStartedCutoff = now - NOT_STARTED_GRACE_MS;
   // "Upcoming" means: genuinely still ahead of us (not started, and its
   // time hasn't passed), OR started recently and still going. Without
   // the staleCutoff half of this, a class started with no time limit
@@ -130,7 +140,7 @@ export async function listUpcomingFor(user) {
            OR (sc.room_id IS NOT NULL AND r.ended = false AND r.created_at > $2)
          )
        ORDER BY sc.scheduled_at ASC`,
-      [now, staleCutoff]
+      [notStartedCutoff, staleCutoff]
     ));
   } else if (user.role === 'staff') {
     ({ rows } = await db.query(
@@ -143,7 +153,7 @@ export async function listUpcomingFor(user) {
          )
          AND (sc.host_user_id = $1 OR st.staff_id = $1)
        ORDER BY sc.scheduled_at ASC`,
-      [user.id, now, staleCutoff]
+      [user.id, notStartedCutoff, staleCutoff]
     ));
   } else {
     ({ rows } = await db.query(
@@ -156,7 +166,7 @@ export async function listUpcomingFor(user) {
          )
          AND se.student_id = $1
        ORDER BY sc.scheduled_at ASC`,
-      [user.id, now, staleCutoff]
+      [user.id, notStartedCutoff, staleCutoff]
     ));
   }
   return rows.map(toPublic);
@@ -172,6 +182,7 @@ export async function listUpcomingFor(user) {
 export async function listPublicUpcoming() {
   const now = Date.now();
   const staleCutoff = now - 24 * 60 * 60 * 1000; // 24 hours
+  const notStartedCutoff = now - NOT_STARTED_GRACE_MS;
   const { rows } = await db.query(
     `${SELECT_BASE}
      WHERE sc.canceled = false
@@ -181,7 +192,7 @@ export async function listPublicUpcoming() {
        )
      ORDER BY sc.scheduled_at ASC
      LIMIT 20`,
-    [now, staleCutoff]
+    [notStartedCutoff, staleCutoff]
   );
   return rows.map((r) => ({
     id: r.id,
