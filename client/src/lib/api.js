@@ -5,6 +5,30 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+const NETWORK_ERROR_MESSAGE = "Can't reach the server. Check your connection and try again.";
+
+// The backend can take 20-60s to wake up from an idle sleep (Render's
+// free tier spins services down after inactivity), and during that
+// window a request can fail outright before the server is even
+// listening yet. The browser reports that as a bare "Failed to fetch"
+// TypeError with no further detail -- not something anyone could act
+// on if shown as-is. Every api.js call now goes through this instead
+// of calling fetch directly: one retry after a short wait recovers the
+// common case (server waking up mid-request); if it still fails,
+// surface a message a person can actually understand rather than the
+// raw browser text.
+async function apiFetch(url, options, attempt = 1) {
+  try {
+    return await fetch(url, options);
+  } catch (err) {
+    if (attempt < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      return apiFetch(url, options, attempt + 1);
+    }
+    throw new Error(NETWORK_ERROR_MESSAGE);
+  }
+}
+
 async function parseOrThrow(res) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Request failed');
@@ -12,7 +36,7 @@ async function parseOrThrow(res) {
 }
 
 export async function createRoom(durationMinutes, subjectId, allowGuests) {
-  const res = await fetch(`${API_BASE}/api/rooms`, {
+  const res = await apiFetch(`${API_BASE}/api/rooms`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({
@@ -25,12 +49,12 @@ export async function createRoom(durationMinutes, subjectId, allowGuests) {
 }
 
 export async function getPublicRoomInfo(roomId) {
-  const res = await fetch(`${API_BASE}/api/rooms/${roomId}/public-info`);
+  const res = await apiFetch(`${API_BASE}/api/rooms/${roomId}/public-info`);
   return parseOrThrow(res);
 }
 
 export async function createScheduledClass({ subjectId, title, scheduledAt, durationMinutes, allowGuests }) {
-  const res = await fetch(`${API_BASE}/api/scheduled-classes`, {
+  const res = await apiFetch(`${API_BASE}/api/scheduled-classes`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ subjectId, title, scheduledAt, durationMinutes, allowGuests }),
@@ -39,12 +63,12 @@ export async function createScheduledClass({ subjectId, title, scheduledAt, dura
 }
 
 export async function listScheduledClasses() {
-  const res = await fetch(`${API_BASE}/api/scheduled-classes`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/scheduled-classes`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 export async function cancelScheduledClass(id) {
-  const res = await fetch(`${API_BASE}/api/scheduled-classes/${id}`, {
+  const res = await apiFetch(`${API_BASE}/api/scheduled-classes/${id}`, {
     method: 'DELETE',
     headers: authHeaders(),
   });
@@ -52,7 +76,7 @@ export async function cancelScheduledClass(id) {
 }
 
 export async function startScheduledClass(id) {
-  const res = await fetch(`${API_BASE}/api/scheduled-classes/${id}/start`, {
+  const res = await apiFetch(`${API_BASE}/api/scheduled-classes/${id}/start`, {
     method: 'POST',
     headers: authHeaders(),
   });
@@ -60,29 +84,29 @@ export async function startScheduledClass(id) {
 }
 
 export async function getPublicScheduledInfo(id) {
-  const res = await fetch(`${API_BASE}/api/scheduled-classes/${id}/public-info`);
+  const res = await apiFetch(`${API_BASE}/api/scheduled-classes/${id}/public-info`);
   return parseOrThrow(res);
 }
 
 export async function getPublicUpcomingClasses() {
-  const res = await fetch(`${API_BASE}/api/public/scheduled-classes`);
+  const res = await apiFetch(`${API_BASE}/api/public/scheduled-classes`);
   return parseOrThrow(res);
 }
 
 export async function getAttendance(roomId) {
-  const res = await fetch(`${API_BASE}/api/rooms/${roomId}/attendance`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/rooms/${roomId}/attendance`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 export async function listSubjectRooms(subjectId) {
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/rooms`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/rooms`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 // Named getLivekitToken (not getToken) to avoid clashing with the auth
 // helper's getToken(), which reads the login token from local storage.
 export async function getLivekitToken(roomId) {
-  const res = await fetch(`${API_BASE}/api/token`, {
+  const res = await apiFetch(`${API_BASE}/api/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ roomId }),
@@ -91,7 +115,7 @@ export async function getLivekitToken(roomId) {
 }
 
 export async function getRoomInfo(roomId) {
-  const res = await fetch(`${API_BASE}/api/rooms/${roomId}`, {
+  const res = await apiFetch(`${API_BASE}/api/rooms/${roomId}`, {
     headers: authHeaders(),
   });
   return parseOrThrow(res);
@@ -99,12 +123,12 @@ export async function getRoomInfo(roomId) {
 
 // --- Subjects, enrollment, syllabus ---------------------------------------
 export async function listSubjects() {
-  const res = await fetch(`${API_BASE}/api/subjects`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/subjects`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 export async function createSubject(name) {
-  const res = await fetch(`${API_BASE}/api/subjects`, {
+  const res = await apiFetch(`${API_BASE}/api/subjects`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ name }),
@@ -113,7 +137,7 @@ export async function createSubject(name) {
 }
 
 export async function deleteSubject(subjectId) {
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}`, {
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}`, {
     method: 'DELETE',
     headers: authHeaders(),
   });
@@ -121,7 +145,7 @@ export async function deleteSubject(subjectId) {
 }
 
 export async function addSubjectTeacher(subjectId, staffId) {
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/teachers`, {
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/teachers`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ staffId }),
@@ -130,7 +154,7 @@ export async function addSubjectTeacher(subjectId, staffId) {
 }
 
 export async function removeSubjectTeacher(subjectId, staffId) {
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/teachers/${staffId}`, {
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/teachers/${staffId}`, {
     method: 'DELETE',
     headers: authHeaders(),
   });
@@ -138,7 +162,7 @@ export async function removeSubjectTeacher(subjectId, staffId) {
 }
 
 export async function setEducatorVisibility(subjectId, staffId, visible) {
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/teachers/${staffId}/visibility`, {
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/teachers/${staffId}/visibility`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ visible }),
@@ -147,12 +171,12 @@ export async function setEducatorVisibility(subjectId, staffId, visible) {
 }
 
 export async function listStudents() {
-  const res = await fetch(`${API_BASE}/api/students`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/students`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 export async function enrollStudent(subjectId, studentId) {
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/enroll`, {
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/enroll`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ studentId }),
@@ -161,7 +185,7 @@ export async function enrollStudent(subjectId, studentId) {
 }
 
 export async function unenrollStudent(subjectId, studentId) {
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/enroll/${studentId}`, {
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/enroll/${studentId}`, {
     method: 'DELETE',
     headers: authHeaders(),
   });
@@ -171,7 +195,7 @@ export async function unenrollStudent(subjectId, studentId) {
 export async function uploadSyllabus(subjectId, file) {
   const formData = new FormData();
   formData.append('file', file);
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/syllabus`, {
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/syllabus`, {
     method: 'POST',
     headers: authHeaders(),
     body: formData,
@@ -180,7 +204,7 @@ export async function uploadSyllabus(subjectId, file) {
 }
 
 export async function setSyllabusText(subjectId, text) {
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/syllabus-text`, {
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/syllabus-text`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ text }),
@@ -190,7 +214,7 @@ export async function setSyllabusText(subjectId, text) {
 
 // --- Quizzes ---------------------------------------------------------------
 export async function generateQuiz(subjectId, { topic, questionCount }) {
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/quizzes`, {
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/quizzes`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ topic, questionCount }),
@@ -199,17 +223,17 @@ export async function generateQuiz(subjectId, { topic, questionCount }) {
 }
 
 export async function listQuizzes(subjectId) {
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/quizzes`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/quizzes`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 export async function getQuiz(quizId) {
-  const res = await fetch(`${API_BASE}/api/quizzes/${quizId}`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/quizzes/${quizId}`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 export async function submitQuiz(quizId, answers) {
-  const res = await fetch(`${API_BASE}/api/quizzes/${quizId}/submit`, {
+  const res = await apiFetch(`${API_BASE}/api/quizzes/${quizId}/submit`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ answers }),
@@ -218,17 +242,17 @@ export async function submitQuiz(quizId, answers) {
 }
 
 export async function getQuizSubmissions(quizId) {
-  const res = await fetch(`${API_BASE}/api/quizzes/${quizId}/submissions`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/quizzes/${quizId}/submissions`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 export async function getQuizFull(quizId) {
-  const res = await fetch(`${API_BASE}/api/quizzes/${quizId}/full`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/quizzes/${quizId}/full`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 export async function createManualQuiz(subjectId, { topic, questions }) {
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/quizzes/manual`, {
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/quizzes/manual`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ topic, questions }),
@@ -239,7 +263,7 @@ export async function createManualQuiz(subjectId, { topic, questions }) {
 export async function uploadQuizFile(subjectId, file) {
   const formData = new FormData();
   formData.append('file', file);
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/quizzes/upload`, {
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/quizzes/upload`, {
     method: 'POST',
     headers: authHeaders(),
     body: formData,
@@ -248,7 +272,7 @@ export async function uploadQuizFile(subjectId, file) {
 }
 
 export async function updateQuiz(quizId, questions) {
-  const res = await fetch(`${API_BASE}/api/quizzes/${quizId}`, {
+  const res = await apiFetch(`${API_BASE}/api/quizzes/${quizId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ questions }),
@@ -257,7 +281,7 @@ export async function updateQuiz(quizId, questions) {
 }
 
 export async function publishQuiz(quizId) {
-  const res = await fetch(`${API_BASE}/api/quizzes/${quizId}/publish`, {
+  const res = await apiFetch(`${API_BASE}/api/quizzes/${quizId}/publish`, {
     method: 'POST',
     headers: authHeaders(),
   });
@@ -265,7 +289,7 @@ export async function publishQuiz(quizId) {
 }
 
 export async function unpublishQuiz(quizId) {
-  const res = await fetch(`${API_BASE}/api/quizzes/${quizId}/unpublish`, {
+  const res = await apiFetch(`${API_BASE}/api/quizzes/${quizId}/unpublish`, {
     method: 'POST',
     headers: authHeaders(),
   });
@@ -273,7 +297,7 @@ export async function unpublishQuiz(quizId) {
 }
 
 export async function deleteQuiz(quizId) {
-  const res = await fetch(`${API_BASE}/api/quizzes/${quizId}`, {
+  const res = await apiFetch(`${API_BASE}/api/quizzes/${quizId}`, {
     method: 'DELETE',
     headers: authHeaders(),
   });
@@ -282,7 +306,7 @@ export async function deleteQuiz(quizId) {
 
 // --- Assignments -------------------------------------------------------
 export async function generateAssignment(subjectId, { topic, dueAt }) {
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/assignments`, {
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/assignments`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ topic, dueAt }),
@@ -291,12 +315,12 @@ export async function generateAssignment(subjectId, { topic, dueAt }) {
 }
 
 export async function listAssignments(subjectId) {
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/assignments`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/assignments`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 export async function getAssignment(assignmentId) {
-  const res = await fetch(`${API_BASE}/api/assignments/${assignmentId}`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/assignments/${assignmentId}`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
@@ -304,7 +328,7 @@ export async function submitAssignment(assignmentId, { textAnswer, file }) {
   const formData = new FormData();
   if (textAnswer) formData.append('textAnswer', textAnswer);
   if (file) formData.append('file', file);
-  const res = await fetch(`${API_BASE}/api/assignments/${assignmentId}/submit`, {
+  const res = await apiFetch(`${API_BASE}/api/assignments/${assignmentId}/submit`, {
     method: 'POST',
     headers: authHeaders(),
     body: formData,
@@ -313,17 +337,17 @@ export async function submitAssignment(assignmentId, { textAnswer, file }) {
 }
 
 export async function getAssignmentSubmissions(assignmentId) {
-  const res = await fetch(`${API_BASE}/api/assignments/${assignmentId}/submissions`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/assignments/${assignmentId}/submissions`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 export async function getAssignmentFull(assignmentId) {
-  const res = await fetch(`${API_BASE}/api/assignments/${assignmentId}/full`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/assignments/${assignmentId}/full`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 export async function createManualAssignment(subjectId, { title, instructions, rubric, dueAt }) {
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/assignments/manual`, {
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/assignments/manual`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ title, instructions, rubric, dueAt }),
@@ -335,7 +359,7 @@ export async function uploadAssignmentFile(subjectId, file, title) {
   const formData = new FormData();
   formData.append('file', file);
   if (title) formData.append('title', title);
-  const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/assignments/upload`, {
+  const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/assignments/upload`, {
     method: 'POST',
     headers: authHeaders(),
     body: formData,
@@ -344,7 +368,7 @@ export async function uploadAssignmentFile(subjectId, file, title) {
 }
 
 export async function updateAssignment(assignmentId, { title, instructions, rubric, dueAt }) {
-  const res = await fetch(`${API_BASE}/api/assignments/${assignmentId}`, {
+  const res = await apiFetch(`${API_BASE}/api/assignments/${assignmentId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ title, instructions, rubric, dueAt }),
@@ -353,7 +377,7 @@ export async function updateAssignment(assignmentId, { title, instructions, rubr
 }
 
 export async function publishAssignment(assignmentId) {
-  const res = await fetch(`${API_BASE}/api/assignments/${assignmentId}/publish`, {
+  const res = await apiFetch(`${API_BASE}/api/assignments/${assignmentId}/publish`, {
     method: 'POST',
     headers: authHeaders(),
   });
@@ -361,7 +385,7 @@ export async function publishAssignment(assignmentId) {
 }
 
 export async function unpublishAssignment(assignmentId) {
-  const res = await fetch(`${API_BASE}/api/assignments/${assignmentId}/unpublish`, {
+  const res = await apiFetch(`${API_BASE}/api/assignments/${assignmentId}/unpublish`, {
     method: 'POST',
     headers: authHeaders(),
   });
@@ -369,7 +393,7 @@ export async function unpublishAssignment(assignmentId) {
 }
 
 export async function deleteAssignment(assignmentId) {
-  const res = await fetch(`${API_BASE}/api/assignments/${assignmentId}`, {
+  const res = await apiFetch(`${API_BASE}/api/assignments/${assignmentId}`, {
     method: 'DELETE',
     headers: authHeaders(),
   });
@@ -377,7 +401,7 @@ export async function deleteAssignment(assignmentId) {
 }
 
 export async function downloadAssignmentSourceFile(assignmentId) {
-  const res = await fetch(`${API_BASE}/api/assignments/${assignmentId}/source-file`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/assignments/${assignmentId}/source-file`, { headers: authHeaders() });
   if (!res.ok) throw new Error('Could not download file');
   const disposition = res.headers.get('Content-Disposition') || '';
   const match = disposition.match(/filename="?([^"]+)"?/);
@@ -393,12 +417,12 @@ export async function downloadAssignmentSourceFile(assignmentId) {
 
 // --- Billing ---------------------------------------------------------------
 export async function getBillingInstructions() {
-  const res = await fetch(`${API_BASE}/api/billing/instructions`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/billing/instructions`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 export async function setBillingInstructions(instructions) {
-  const res = await fetch(`${API_BASE}/api/billing/instructions`, {
+  const res = await apiFetch(`${API_BASE}/api/billing/instructions`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ instructions }),
@@ -407,17 +431,17 @@ export async function setBillingInstructions(instructions) {
 }
 
 export async function listBillingStudents() {
-  const res = await fetch(`${API_BASE}/api/billing/students`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/billing/students`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 export async function listStudentPayments(studentId) {
-  const res = await fetch(`${API_BASE}/api/billing/students/${studentId}/payments`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/billing/students/${studentId}/payments`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 export async function addPayment(studentId, { amount, note }) {
-  const res = await fetch(`${API_BASE}/api/billing/students/${studentId}/payments`, {
+  const res = await apiFetch(`${API_BASE}/api/billing/students/${studentId}/payments`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ amount, note }),
@@ -426,7 +450,7 @@ export async function addPayment(studentId, { amount, note }) {
 }
 
 export async function deletePayment(paymentId) {
-  const res = await fetch(`${API_BASE}/api/billing/payments/${paymentId}`, {
+  const res = await apiFetch(`${API_BASE}/api/billing/payments/${paymentId}`, {
     method: 'DELETE',
     headers: authHeaders(),
   });
@@ -435,13 +459,13 @@ export async function deletePayment(paymentId) {
 
 // --- Superadmin: live sessions ----------------------------------------
 export async function listLiveSessions() {
-  const res = await fetch(`${API_BASE}/api/admin/live-sessions`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/admin/live-sessions`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 // --- Student self-recordings -------------------------------------------
 export async function listStaff() {
-  const res = await fetch(`${API_BASE}/api/staff`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/staff`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
@@ -449,7 +473,7 @@ export async function uploadSelfRecording(blob) {
   const formData = new FormData();
   const ext = blob.type.includes('video') ? 'webm' : 'webm';
   formData.append('file', blob, `self-recording-${Date.now()}.${ext}`);
-  const res = await fetch(`${API_BASE}/api/self-recordings`, {
+  const res = await apiFetch(`${API_BASE}/api/self-recordings`, {
     method: 'POST',
     headers: authHeaders(),
     body: formData,
@@ -458,12 +482,12 @@ export async function uploadSelfRecording(blob) {
 }
 
 export async function listMySelfRecordings() {
-  const res = await fetch(`${API_BASE}/api/self-recordings`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/self-recordings`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 export async function shareSelfRecording(recordingId, staffId) {
-  const res = await fetch(`${API_BASE}/api/self-recordings/${recordingId}/share`, {
+  const res = await apiFetch(`${API_BASE}/api/self-recordings/${recordingId}/share`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ staffId }),
@@ -472,7 +496,7 @@ export async function shareSelfRecording(recordingId, staffId) {
 }
 
 export async function unshareSelfRecording(recordingId) {
-  const res = await fetch(`${API_BASE}/api/self-recordings/${recordingId}/share`, {
+  const res = await apiFetch(`${API_BASE}/api/self-recordings/${recordingId}/share`, {
     method: 'DELETE',
     headers: authHeaders(),
   });
@@ -480,14 +504,14 @@ export async function unshareSelfRecording(recordingId) {
 }
 
 export async function listShareableStudents() {
-  const res = await fetch(`${API_BASE}/api/self-recordings/shareable-students`, {
+  const res = await apiFetch(`${API_BASE}/api/self-recordings/shareable-students`, {
     headers: authHeaders(),
   });
   return parseOrThrow(res);
 }
 
 export async function shareRecordingWithStudents(recordingId, { studentIds, all }) {
-  const res = await fetch(`${API_BASE}/api/self-recordings/${recordingId}/share-students`, {
+  const res = await apiFetch(`${API_BASE}/api/self-recordings/${recordingId}/share-students`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ studentIds, all }),
@@ -496,7 +520,7 @@ export async function shareRecordingWithStudents(recordingId, { studentIds, all 
 }
 
 export async function unshareRecordingFromStudent(recordingId, studentId) {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API_BASE}/api/self-recordings/${recordingId}/share-students/${studentId}`,
     { method: 'DELETE', headers: authHeaders() }
   );
@@ -504,19 +528,19 @@ export async function unshareRecordingFromStudent(recordingId, studentId) {
 }
 
 export async function getRecordingShares(recordingId) {
-  const res = await fetch(`${API_BASE}/api/self-recordings/${recordingId}/shares`, {
+  const res = await apiFetch(`${API_BASE}/api/self-recordings/${recordingId}/shares`, {
     headers: authHeaders(),
   });
   return parseOrThrow(res);
 }
 
 export async function listSharedRecordings() {
-  const res = await fetch(`${API_BASE}/api/self-recordings/shared-with-me`, { headers: authHeaders() });
+  const res = await apiFetch(`${API_BASE}/api/self-recordings/shared-with-me`, { headers: authHeaders() });
   return parseOrThrow(res);
 }
 
 export async function downloadSelfRecording(recordingId) {
-  const res = await fetch(`${API_BASE}/api/self-recordings/${recordingId}/download`, {
+  const res = await apiFetch(`${API_BASE}/api/self-recordings/${recordingId}/download`, {
     headers: authHeaders(),
   });
   const data = await res.json();
@@ -532,27 +556,27 @@ export async function downloadSelfRecording(recordingId) {
 // Public homepage visitor counter -- no auth headers, these need to
 // work for people who've never logged in.
 export async function getVisitCount() {
-  const res = await fetch(`${API_BASE}/api/visits`);
+  const res = await apiFetch(`${API_BASE}/api/visits`);
   return parseOrThrow(res);
 }
 
 export async function recordVisit() {
-  const res = await fetch(`${API_BASE}/api/visits`, { method: 'POST' });
+  const res = await apiFetch(`${API_BASE}/api/visits`, { method: 'POST' });
   return parseOrThrow(res);
 }
 
 export async function listPublicEducators() {
-  const res = await fetch(`${API_BASE}/api/public/educators`);
+  const res = await apiFetch(`${API_BASE}/api/public/educators`);
   return parseOrThrow(res);
 }
 
 export async function listPublicCourses() {
-  const res = await fetch(`${API_BASE}/api/public/courses`);
+  const res = await apiFetch(`${API_BASE}/api/public/courses`);
   return parseOrThrow(res);
 }
 
 export async function getPublicStats() {
-  const res = await fetch(`${API_BASE}/api/public/stats`);
+  const res = await apiFetch(`${API_BASE}/api/public/stats`);
   return parseOrThrow(res);
 }
 
