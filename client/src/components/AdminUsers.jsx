@@ -1,9 +1,9 @@
 import { Fragment, useEffect, useState } from 'react';
-import { API_BASE, getToken } from '../lib/auth.js';
+import { API_BASE, getToken, apiFetch } from '../lib/auth.js';
 import TopBar from './TopBar.jsx';
 
 async function authedFetch(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await apiFetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',

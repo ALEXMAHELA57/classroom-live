@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { API_BASE, getToken } from '../lib/auth.js';
+import { API_BASE, getToken, apiFetch } from '../lib/auth.js';
 
 export default function FileShare({ roomId, isTeacher }) {
   const [files, setFiles] = useState([]);
@@ -10,7 +10,7 @@ export default function FileShare({ roomId, isTeacher }) {
 
   async function refresh() {
     try {
-      const res = await fetch(`${API_BASE}/api/rooms/${roomId}/files`, {
+      const res = await apiFetch(`${API_BASE}/api/rooms/${roomId}/files`, {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
       const data = await res.json();
@@ -35,7 +35,7 @@ export default function FileShare({ roomId, isTeacher }) {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch(`${API_BASE}/api/rooms/${roomId}/files`, {
+      const res = await apiFetch(`${API_BASE}/api/rooms/${roomId}/files`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${getToken()}` },
         body: formData,
@@ -52,7 +52,7 @@ export default function FileShare({ roomId, isTeacher }) {
   }
 
   async function download(file) {
-    const res = await fetch(`${API_BASE}/api/rooms/${roomId}/files/${file.id}`, {
+    const res = await apiFetch(`${API_BASE}/api/rooms/${roomId}/files/${file.id}`, {
       headers: { Authorization: `Bearer ${getToken()}` },
     });
     if (!res.ok) return;

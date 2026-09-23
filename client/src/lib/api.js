@@ -1,32 +1,8 @@
-import { API_BASE, getToken } from './auth.js';
+import { API_BASE, getToken, apiFetch } from './auth.js';
 
 function authHeaders() {
   const token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
-const NETWORK_ERROR_MESSAGE = "Can't reach the server. Check your connection and try again.";
-
-// The backend can take 20-60s to wake up from an idle sleep (Render's
-// free tier spins services down after inactivity), and during that
-// window a request can fail outright before the server is even
-// listening yet. The browser reports that as a bare "Failed to fetch"
-// TypeError with no further detail -- not something anyone could act
-// on if shown as-is. Every api.js call now goes through this instead
-// of calling fetch directly: one retry after a short wait recovers the
-// common case (server waking up mid-request); if it still fails,
-// surface a message a person can actually understand rather than the
-// raw browser text.
-async function apiFetch(url, options, attempt = 1) {
-  try {
-    return await fetch(url, options);
-  } catch (err) {
-    if (attempt < 2) {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      return apiFetch(url, options, attempt + 1);
-    }
-    throw new Error(NETWORK_ERROR_MESSAGE);
-  }
 }
 
 async function parseOrThrow(res) {

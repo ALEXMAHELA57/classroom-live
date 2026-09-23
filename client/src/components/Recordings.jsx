@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { API_BASE, getToken } from '../lib/auth.js';
+import { API_BASE, getToken, apiFetch } from '../lib/auth.js';
 
 export default function Recordings({ roomId, refreshKey }) {
   const [recordings, setRecordings] = useState([]);
@@ -9,7 +9,7 @@ export default function Recordings({ roomId, refreshKey }) {
 
   async function refresh() {
     try {
-      const res = await fetch(`${API_BASE}/api/rooms/${roomId}/recordings`, {
+      const res = await apiFetch(`${API_BASE}/api/rooms/${roomId}/recordings`, {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
       const data = await res.json();
@@ -39,7 +39,7 @@ export default function Recordings({ roomId, refreshKey }) {
     setDownloadingId(recording.id);
     setError('');
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `${API_BASE}/api/rooms/${roomId}/recordings/${recording.id}/download-url`,
         { headers: { Authorization: `Bearer ${getToken()}` } }
       );

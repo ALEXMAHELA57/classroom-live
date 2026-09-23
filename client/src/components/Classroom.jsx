@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Room, RoomEvent, Track, VideoPresets } from 'livekit-client';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { getLivekitToken, API_BASE, uploadSelfRecording } from '../lib/api.js';
-import { getToken as getLoginToken } from '../lib/auth.js';
+import { getToken as getLoginToken, apiFetch } from '../lib/auth.js';
 import { getSocket } from '../lib/socket.js';
 import Chat from './Chat.jsx';
 import HandRaiseQueue from './HandRaiseQueue.jsx';
@@ -900,7 +900,7 @@ export default function Classroom() {
     setRecordingError('');
     try {
       const path = isRecording ? 'stop' : 'start';
-      const res = await fetch(`${API_BASE}/api/rooms/${roomId}/recording/${path}`, {
+      const res = await apiFetch(`${API_BASE}/api/rooms/${roomId}/recording/${path}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${getLoginToken()}` },
       });

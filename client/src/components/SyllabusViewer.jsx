@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { API_BASE, getToken } from '../lib/auth.js';
+import { API_BASE, getToken, apiFetch } from '../lib/auth.js';
 import TopBar from './TopBar.jsx';
 
 export default function SyllabusViewer() {
@@ -14,7 +14,7 @@ export default function SyllabusViewer() {
     let objectUrl;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/subjects/${subjectId}/syllabus`, {
+        const res = await apiFetch(`${API_BASE}/api/subjects/${subjectId}/syllabus`, {
           headers: { Authorization: `Bearer ${getToken()}` },
         });
         if (!res.ok) {
