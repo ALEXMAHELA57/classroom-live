@@ -32,6 +32,17 @@ export default function GoogleButton({ onCredential, text = 'signin_with' }) {
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: dispatchCredential,
+          // Without FedCM, Google's script falls back to a popup +
+          // window.postMessage handshake to deliver the credential back
+          // to this page. Browsers that restrict cross-window messaging
+          // under a strict Cross-Origin-Opener-Policy can silently drop
+          // that message — the console shows a COOP/postMessage warning,
+          // and from the user's side the button just does nothing: no
+          // credential ever arrives, no error, they're just left sitting
+          // on the login page. FedCM is Google's own recommended fix —
+          // it uses a native browser-mediated exchange instead of
+          // postMessage, so there's nothing for COOP to block.
+          use_fedcm_for_prompt: true,
         });
         initialized = true;
       }
